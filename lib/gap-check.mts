@@ -1,8 +1,8 @@
 import { sheetsGet, ONGLET_FORMATEURS, ONGLET_DISPONIBILITES } from "./sheets.mts";
 
-// Endpoint Formspree déjà utilisé pour le diagnostic — on le réutilise avec un
-// _subject distinct pour ne pas avoir à gérer un deuxième formulaire gratuit.
-const FORMSPREE_ENDPOINT = "https://formspree.io/f/xaqzwvoj";
+// Formulaire Formspree dédié, créé spécifiquement pour cette alerte
+// (notification configurée sur stephanie.d@mypartner-school.fr).
+const FORMSPREE_ENDPOINT = "https://formspree.io/f/xkoalolg";
 const EMAIL_DESTINATAIRE_INFO = "stephanie.d@mypartner-school.fr";
 
 function addDays(date: Date, n: number): Date {
