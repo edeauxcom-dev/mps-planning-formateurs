@@ -278,7 +278,9 @@
     <div class="field-row">
       <div class="field">
         <label for="nomFormateur">Nom du formateur</label>
-        <input type="text" id="nomFormateur" placeholder="Ex : Julie Martin">
+        <select id="nomFormateur">
+          <option value="" disabled selected>Chargement de la liste…</option>
+        </select>
       </div>
       <div class="field">
         <label for="dateDebut">Début de la période</label>
@@ -627,6 +629,29 @@ async function validerDispos(){
   const aujourdhui = new Date();
   const prochainLundi = lundiDeLaSemaine(addDays(aujourdhui, 7));
   document.getElementById('dateDebut').value = formatISO(prochainLundi);
+})();
+
+// Chargement de la liste des formateurs indépendants depuis le Sheet
+(async function chargerFormateurs(){
+  const select = document.getElementById('nomFormateur');
+  try {
+    const res = await fetch('/api/planning-data');
+    if (!res.ok) throw new Error('Erreur ' + res.status);
+    const data = await res.json();
+    const independants = (data.formateurs || []).filter(f => (f.type || '').toLowerCase().startsWith('indépendant'));
+    select.innerHTML = '<option value="" disabled selected>Choisissez votre nom…</option>';
+    independants.forEach(f => {
+      const option = document.createElement('option');
+      option.value = f.nom;
+      option.textContent = f.nom;
+      select.appendChild(option);
+    });
+    if (independants.length === 0){
+      select.innerHTML = '<option value="" disabled selected>Aucun formateur trouvé — contactez l\'administration</option>';
+    }
+  } catch (e) {
+    select.innerHTML = '<option value="" disabled selected>Erreur de chargement — rechargez la page</option>';
+  }
 })();
 </script>
 
