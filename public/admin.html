@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Planning Formateurs — My Partner School</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Cormorant+Garamond:ital,wght@0,500;0,600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --mps-blue:#0E70B7; --mps-blue-dark:#0A4F80; --mps-ink:#1A1A1A; --bg:#F7F9FB;
+    --card:#FFFFFF; --line:#E1E6EA; --muted:#666;
+    --ok-bg:#E8F5EE; --ok-border:#2F9E62; --ok-text:#1E7045;
+    --alert-bg:#FDEAEA; --alert-border:#D14545; --alert-text:#A82E2E;
+    --shift-bg:#FFF6E2; --shift-border:#C9A84C;
+    --fallback-bg:#EFE9F7; --fallback-border:#7C5CBF; --fallback-text:#4A3580;
+    --oe-teal:#2A7F7F; --oe-gold:#C9A84C;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--mps-ink); font-family:'DM Sans', sans-serif; line-height:1.5; }
+  header{ background:#fff; border-bottom:3px solid var(--mps-blue); padding:20px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+  header .left{ display:flex; align-items:center; gap:16px; }
+  header h1{ font-size:19px; font-weight:700; margin:0; color:var(--mps-blue-dark); }
+  header p{ margin:2px 0 0; font-size:13px; color:var(--muted); }
+  main{ max-width:1080px; margin:0 auto; padding:28px 20px 80px; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:10px; padding:24px; margin-bottom:24px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .card h2{ font-size:18px; font-weight:700; color:var(--mps-blue-dark); margin:0 0 14px; }
+  .legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:13px; color:var(--muted); margin-bottom:16px; }
+  .legend span{ display:flex; align-items:center; gap:6px; }
+  .dot{ width:10px; height:10px; border-radius:50%; display:inline-block; }
+  .dot.ok{ background:var(--ok-border); } .dot.alert{ background:var(--alert-border); }
+  .dot.shift{ background:var(--shift-border); } .dot.fallback{ background:var(--fallback-border); }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  thead th{ background:var(--mps-blue-dark); color:#fff; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; padding:10px 8px; text-align:left; }
+  thead th small{ display:block; font-weight:400; text-transform:none; color:#CFE3F2; font-size:11px; margin-top:2px; }
+  tbody tr:nth-child(even){ background:#FAFBFC; }
+  td{ padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .week-label{ font-weight:700; color:var(--mps-blue-dark); white-space:nowrap; }
+  .pill{ border-radius:7px; padding:7px 9px; font-size:13px; }
+  .pill.ok{ background:var(--ok-bg); border:1px solid var(--ok-border); color:var(--ok-text); }
+  .pill.alert{ background:var(--alert-bg); border:1px solid var(--alert-border); color:var(--alert-text); font-weight:700; }
+  .pill.shift{ background:var(--shift-bg); border:1px solid var(--shift-border); color:#7A5E1E; }
+  .pill.fallback{ background:var(--fallback-bg); border:1px solid var(--fallback-border); color:var(--fallback-text); }
+  .pill .date{ display:block; font-size:11px; font-weight:400; opacity:0.8; margin-top:2px; }
+  .pill .note{ display:block; font-size:11px; margin-top:3px; font-style:italic; }
+  .empty-cell{ color:#C7CCD1; font-style:italic; font-size:13px; }
+  .hours-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; margin-top:6px; }
+  .hours-card{ background:#F7F9FB; border:1px solid var(--line); border-radius:8px; padding:14px; text-align:center; }
+  .hours-card .name{ font-size:13px; color:var(--muted); margin-bottom:4px; }
+  .hours-card .val{ font-size:24px; font-weight:700; color:var(--mps-blue-dark); }
+  .hours-card .val small{ font-size:13px; font-weight:400; color:var(--muted); }
+  .total-card{ background:var(--mps-blue-dark); color:#fff; } .total-card .name{ color:#CFE3F2; } .total-card .val{ color:#fff; }
+  .alert-box{ background:var(--alert-bg); border:1px solid var(--alert-border); border-radius:8px; padding:14px 18px; font-size:14px; color:var(--alert-text); margin-top:16px; }
+  .alert-box strong{ display:block; margin-bottom:4px; }
+  .actions{ display:flex; gap:12px; margin-top:18px; flex-wrap:wrap; }
+  button{ font-family:'DM Sans', sans-serif; font-weight:700; font-size:14px; border:none; border-radius:6px; cursor:pointer; padding:11px 20px; }
+  .btn-primary{ background:var(--mps-blue); color:#fff; } .btn-primary:hover{ background:var(--mps-blue-dark); }
+  .btn-primary:disabled{ opacity:0.6; cursor:default; }
+  .save-feedback{ margin-top:14px; font-size:13.5px; color:var(--ok-text); }
+  .loading, .erreur{ padding:40px; text-align:center; color:var(--muted); }
+  .erreur{ color:var(--alert-text); }
+  footer{ text-align:center; padding:20px; font-size:12px; color:#9aa1a8; }
+  footer .signature{ color:var(--oe-teal); font-weight:700; } footer .signature .gold{ color:var(--oe-gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="left">
+    <div>
+      <h1>Planning Formateurs — My Partner School</h1>
+      <p id="periode-label">Chargement…</p>
+    </div>
+  </div>
+</header>
+
+<main id="main-content">
+  <div class="loading">Chargement des disponibilités…</div>
+</main>
+
+<footer>
+  Outil conçu par <span class="signature">Outi'<span class="gold">e</span>Déaux</span> — Votre Outil Digital Idéal Personnalisé
+</footer>
+
+<script>
+const JOURS_FR = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const MOIS_FR = ["janvier","février","mars","avril","mai","juin","juillet","août","septembre","octobre","novembre","décembre"];
+
+function formatDateCourt(date){ return String(date.getDate()).padStart(2,'0') + "/" + String(date.getMonth()+1).padStart(2,'0'); }
+function formatISO(date){
+  const y = date.getFullYear(), m = String(date.getMonth()+1).padStart(2,'0'), d = String(date.getDate()).padStart(2,'0');
+  return `${y}-${m}-${d}`;
+}
+function addDays(date, n){ const d = new Date(date); d.setDate(d.getDate() + n); return d; }
+function sameDay(a, b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function dateDePaques(year){
+  const a=year%19,b=Math.floor(year/100),c=year%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+    h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),
+    month=Math.floor((h+l-7*m+114)/31),day=((h+l-7*m+114)%31)+1;
+  return new Date(year, month-1, day);
+}
+function joursFeriesFR(year){
+  const p = dateDePaques(year);
+  return [new Date(year,0,1), addDays(p,1), new Date(year,4,1), new Date(year,4,8), addDays(p,39), addDays(p,50),
+    new Date(year,6,14), new Date(year,7,15), new Date(year,10,1), new Date(year,10,11), new Date(year,11,25)];
+}
+function estFerie(date, feries){ return feries.some(f => sameDay(f, date)); }
+function dernierJeudi(year, monthIndex){
+  const dernierJour = new Date(year, monthIndex+1, 0).getDate();
+  for (let d = dernierJour; d >= 1; d--){ const date = new Date(year, monthIndex, d); if (date.getDay()===4) return date; }
+}
+function lundiDeLaSemaine(date){ const d = new Date(date); const jour = d.getDay(); const diff = jour===0?-6:1-jour; return addDays(d, diff); }
+function dateEffectiveCalc(dateHabituelle, feries){
+  if (estFerie(dateHabituelle, feries)){ return { date: addDays(lundiDeLaSemaine(dateHabituelle), 4), decalee: true, nominal: dateHabituelle }; }
+  return { date: dateHabituelle, decalee: false, nominal: dateHabituelle };
+}
+function journeeMarseille(year, monthIndex, feries){ return dateEffectiveCalc(dernierJeudi(year, monthIndex), feries); }
+
+// Construit les semaines des 3 prochains mois à partir d'aujourd'hui
+function construireSemaines(){
+  const debut = lundiDeLaSemaine(new Date());
+  const fin = new Date(debut); fin.setMonth(fin.getMonth() + 3);
+  const feries = [...joursFeriesFR(debut.getFullYear()), ...joursFeriesFR(debut.getFullYear()+1)];
+
+  const journeesMarseille = [];
+  let curseur = new Date(debut.getFullYear(), debut.getMonth(), 1);
+  while (curseur < fin){ journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries)); curseur.setMonth(curseur.getMonth()+1); }
+
+  const semaines = [];
+  let lundi = new Date(debut);
+  while (lundi < fin){
+    const dimanche = addDays(lundi, 6);
+    const marseille = journeesMarseille.find(jm => jm.date >= lundi && jm.date <= dimanche) || null;
+    semaines.push({
+      lundiISO: formatISO(lundi),
+      label: `S${semaines.length+1}<br><small>${formatDateCourt(lundi)}–${formatDateCourt(addDays(lundi,6))}</small>`,
+      lundi: dateEffectiveCalc(new Date(lundi), feries),
+      mardi: dateEffectiveCalc(addDays(lundi,1), feries),
+      mercredi: dateEffectiveCalc(addDays(lundi,2), feries),
+      marseille
+    });
+    lundi = addDays(lundi, 7);
+  }
+  return semaines;
+}
+
+function estActif(formateur, dateSlot){
+  const m = (formateur.actifApartir || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if (!m) return true; // pas de date reconnue -> déjà actif
+  const dateActivation = new Date(parseInt(m[3]), parseInt(m[2])-1, parseInt(m[1]));
+  return dateSlot >= dateActivation;
+}
+
+function trouverDisponibles(disponibilites, dateISO, type){
+  return disponibilites.filter(d => d.dateEffective === dateISO && d.type === type).map(d => d.formateur);
+}
+
+function choisirParRotation(noms, heures){
+  let meilleur = null;
+  noms.slice().sort().forEach(nom => {
+    if (heures[nom] === undefined) heures[nom] = 0;
+    if (meilleur === null || heures[nom] < heures[meilleur]) meilleur = nom;
+  });
+  return meilleur;
+}
+
+async function init(){
+  let data;
+  try {
+    const res = await fetch('/api/planning-data');
+    if (!res.ok) throw new Error('Erreur ' + res.status);
+    data = await res.json();
+  } catch (e) {
+    document.getElementById('main-content').innerHTML = `<div class="erreur">Impossible de charger les données du planning (${e.message}). Vérifiez que le Sheet est bien partagé avec le compte de service.</div>`;
+    return;
+  }
+
+  const semaines = construireSemaines();
+  document.getElementById('periode-label').textContent =
+    `${formatDateCourt(semaines[0].lundi.date)} au ${formatDateCourt(addDays(new Date(semaines[semaines.length-1].lundiISO), 6))} — généré automatiquement à partir des disponibilités`;
+
+  const tier1 = data.formateurs.filter(f => f.type.toLowerCase().startsWith('indépendant'));
+  const tier2 = data.formateurs.filter(f => f.type.toLowerCase().startsWith('fallback'));
+  const heuresTier1 = {}, heuresTier2 = {};
+
+  const SLOTS = [
+    { cle:'lundi', type:'NTC', eligible:'lundi' },
+    { cle:'mardi', type:'CC/CV', eligible:'mardi' },
+    { cle:'mercredi', type:'MEM', eligible:'mercredi' },
+  ];
+
+  let trousCount = 0;
+  const lignesHTML = [];
+  const aEnregistrer = [];
+
+  semaines.forEach(semaine => {
+    const resultat = { lundiISO: semaine.lundiISO, label: semaine.label.replace(/<[^>]+>/g,' ').trim() };
+    const cellulesHTML = {};
+
+    SLOTS.forEach(slot => {
+      const info = semaine[slot.cle];
+      const dateISO = formatISO(info.date);
+      const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, slot.type);
+
+      const candidats1 = tier1.filter(f => dispoNoms.includes(f.nom) && f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
+      let choisi = null, niveau = null;
+      if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] += 3.5; niveau = 'ok'; }
+      else {
+        const candidats2 = tier2.filter(f => f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
+        if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] += 3.5; niveau = 'fallback'; }
+      }
+
+      resultat[slot.cle] = choisi || '';
+      if (!choisi) trousCount++;
+
+      if (info.decalee){
+        const dateNominale = formatDateCourt(info.nominal);
+        cellulesHTML[slot.cle] = `<div class="pill shift"><strong>FÉRIÉ</strong><span class="date">${dateNominale}</span><span class="note">décalé au vendredi</span></div>`;
+        const pillVendredi = choisi
+          ? `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span><span class="note">Session ${slot.type} décalée (férié du ${dateNominale})</span></div>`
+          : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
+        if (cellulesHTML.vendredi){
+          cellulesHTML.vendredi += pillVendredi; // rare cas de deux jours fériés la même semaine — on n'écrase rien
+          resultat.vendredi = (resultat.vendredi || '') + (choisi ? ` + ${choisi} (${slot.type})` : '');
+        } else {
+          cellulesHTML.vendredi = pillVendredi;
+          resultat.vendredi = choisi ? `${choisi} (${slot.type})` : '';
+        }
+        resultat[slot.cle] = 'FÉRIÉ';
+      } else if (choisi){
+        cellulesHTML[slot.cle] = `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span>${niveau==='fallback'?'<span class="note">Filet de sécurité — aucun indépendant disponible</span>':''}</div>`;
+      } else {
+        cellulesHTML[slot.cle] = `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
+      }
+    });
+
+    if (semaine.marseille){
+      const dateISO = formatISO(semaine.marseille.date);
+      const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, 'MARSEILLE');
+      const candidats1 = tier1.filter(f => dispoNoms.includes(f.nom) && f.marseille && estActif(f, semaine.marseille.date)).map(f => f.nom);
+      let choisi = null, niveau = null;
+      if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] += 7; niveau = 'ok'; }
+      else {
+        const candidats2 = tier2.filter(f => f.marseille && estActif(f, semaine.marseille.date)).map(f => f.nom);
+        if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] += 7; niveau = 'fallback'; }
+      }
+      resultat.regroupement = choisi || '';
+      if (!choisi) trousCount++;
+      cellulesHTML.regroupement = choisi
+        ? `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
+        : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
+    } else {
+      cellulesHTML.regroupement = '<span class="empty-cell">—</span>';
+    }
+    if (!cellulesHTML.vendredi) cellulesHTML.vendredi = '<span class="empty-cell">—</span>';
+
+    aEnregistrer.push(resultat);
+    lignesHTML.push(`<tr><td class="week-label">${semaine.label}</td><td>${cellulesHTML.lundi}</td><td>${cellulesHTML.mardi}</td><td>${cellulesHTML.mercredi}</td><td>${cellulesHTML.vendredi}</td><td>${cellulesHTML.regroupement}</td></tr>`);
+  });
+
+  const toutesHeures = {};
+  [...tier1, ...tier2].forEach(f => {
+    const h = (heuresTier1[f.nom] || 0) + (heuresTier2[f.nom] || 0);
+    if (h > 0) toutesHeures[f.nom] = h;
+  });
+  const total = Object.values(toutesHeures).reduce((a,b) => a+b, 0);
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="card">
+      <h2>Planning calculé</h2>
+      <div class="legend">
+        <span><span class="dot ok"></span> Rotation équitable (indépendants)</span>
+        <span><span class="dot fallback"></span> Filet de sécurité utilisé</span>
+        <span><span class="dot shift"></span> Décalé au vendredi (férié)</span>
+        <span><span class="dot alert"></span> Non couvert</span>
+      </div>
+      <table>
+        <thead><tr><th>Semaine</th><th>Lundi<br><small>NTC</small></th><th>Mardi<br><small>CC/CV</small></th><th>Mercredi<br><small>MEM</small></th><th>Vendredi<br><small>décalage férié</small></th><th>Regroupement<br><small>dernier jeudi · Marseille</small></th></tr></thead>
+        <tbody>${lignesHTML.join('')}</tbody>
+      </table>
+      ${trousCount > 0 ? `<div class="alert-box"><strong>⚠ ${trousCount} créneau${trousCount>1?'x':''} non couvert${trousCount>1?'s':''} sur les 3 mois à venir</strong>Personne (ni indépendant, ni filet de sécurité) n'est disponible. C'est ce type de trou que l'alerte automatique par e-mail signalera une fois Formspree branché.</div>` : ''}
+      <div class="actions">
+        <button class="btn-primary" id="btn-enregistrer">Enregistrer ce planning dans le Sheet</button>
+      </div>
+      <div class="save-feedback" id="save-feedback"></div>
+    </div>
+    <div class="card">
+      <h2>Heures cumulées sur la période</h2>
+      <div class="hours-grid">
+        ${Object.entries(toutesHeures).map(([nom,val]) => `<div class="hours-card"><div class="name">${nom}</div><div class="val">${val} <small>h</small></div></div>`).join('')}
+        <div class="hours-card total-card"><div class="name">Total facturé</div><div class="val">${total} <small>h</small></div></div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-enregistrer').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-enregistrer');
+    btn.disabled = true; btn.textContent = 'Enregistrement...';
+    try {
+      const res = await fetch('/api/save-planning', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ semaines: aEnregistrer })
+      });
+      const resultat = await res.json();
+      if (!res.ok) throw new Error(resultat.erreur || 'Erreur serveur');
+      document.getElementById('save-feedback').textContent =
+        `Enregistré : ${resultat.casesRemplies} case(s) remplie(s), ${resultat.nouvellesLignes} nouvelle(s) semaine(s) ajoutée(s)` +
+        (resultat.casesIgnoreesDejaRemplies ? `, ${resultat.casesIgnoreesDejaRemplies} case(s) déjà remplie(s) manuellement préservée(s)` : '') + '.';
+    } catch (e) {
+      document.getElementById('save-feedback').textContent = 'Erreur lors de l\'enregistrement : ' + e.message;
+      document.getElementById('save-feedback').style.color = '#A82E2E';
+    }
+    btn.disabled = false; btn.textContent = 'Enregistrer ce planning dans le Sheet';
+  });
+}
+
+init();
+</script>
+
+</body>
+</html>
