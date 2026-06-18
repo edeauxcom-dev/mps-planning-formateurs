@@ -117,10 +117,10 @@ function dateEffectiveCalc(dateHabituelle, feries){
 }
 function journeeMarseille(year, monthIndex, feries){ return dateEffectiveCalc(dernierJeudi(year, monthIndex), feries); }
 
-// Construit les semaines des 3 prochains mois à partir d'aujourd'hui
-function construireSemaines(){
-  const debut = lundiDeLaSemaine(new Date());
-  const fin = new Date(debut); fin.setMonth(fin.getMonth() + 3);
+// Construit les semaines de la période choisie
+function construireSemaines(dateDebutChoisie, nbMois){
+  const debut = lundiDeLaSemaine(dateDebutChoisie || new Date());
+  const fin = new Date(debut); fin.setMonth(fin.getMonth() + (nbMois || 3));
   const feries = [...joursFeriesFR(debut.getFullYear()), ...joursFeriesFR(debut.getFullYear()+1)];
 
   const journeesMarseille = [];
@@ -169,18 +169,74 @@ function choisirParRotation(noms, heures){
   return meilleur;
 }
 
+// Couleur unique et stable par formateur (peu importe laquelle), calculée une
+// fois à partir de la liste triée de tous les formateurs connus.
+let couleursFormateurs = {};
+function preparerCouleurs(tousLesNoms){
+  const uniques = [...new Set(tousLesNoms)].sort();
+  couleursFormateurs = {};
+  uniques.forEach((nom, i) => {
+    const hue = Math.round((i * 360) / Math.max(uniques.length, 1));
+    couleursFormateurs[nom] = {
+      bg: `hsl(${hue}, 60%, 93%)`,
+      border: `hsl(${hue}, 55%, 42%)`,
+      text: `hsl(${hue}, 60%, 26%)`,
+    };
+  });
+}
+function stylePersonne(nom){
+  const c = couleursFormateurs[nom];
+  return c ? `style="background:${c.bg};border-color:${c.border};color:${c.text};"` : '';
+}
+
+let donneesGlobales = null;
+
 async function init(){
-  let data;
   try {
     const res = await fetch('/api/planning-data');
     if (!res.ok) throw new Error('Erreur ' + res.status);
-    data = await res.json();
+    donneesGlobales = await res.json();
   } catch (e) {
     document.getElementById('main-content').innerHTML = `<div class="erreur">Impossible de charger les données du planning (${e.message}). Vérifiez que le Sheet est bien partagé avec le compte de service.</div>`;
     return;
   }
 
-  const semaines = construireSemaines();
+  preparerCouleurs(donneesGlobales.formateurs.map(f => f.nom));
+
+  document.getElementById('main-content').innerHTML = `
+    <div class="card">
+      <h2>Période affichée</h2>
+      <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+        <div>
+          <label style="display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;">Début</label>
+          <input type="date" id="dateDebutAffichage" style="padding:9px 10px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+        </div>
+        <div>
+          <label style="display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px;">Durée</label>
+          <select id="dureeAffichage" style="padding:9px 10px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+            <option value="1">1 mois</option>
+            <option value="2">2 mois</option>
+            <option value="3" selected>3 mois</option>
+            <option value="6">6 mois</option>
+          </select>
+        </div>
+        <button class="btn-primary" id="btn-actualiser">Actualiser l'affichage</button>
+      </div>
+    </div>
+    <div id="resultats"></div>
+  `;
+  document.getElementById('dateDebutAffichage').value = formatISO(new Date());
+  document.getElementById('btn-actualiser').addEventListener('click', genererPlanning);
+
+  genererPlanning();
+}
+
+function genererPlanning(){
+  const data = donneesGlobales;
+  const inputDate = document.getElementById('dateDebutAffichage').value;
+  const debutChoisi = inputDate ? new Date(inputDate + "T00:00:00") : new Date();
+  const nbMois = parseInt(document.getElementById('dureeAffichage').value);
+  const semaines = construireSemaines(debutChoisi, nbMois);
   document.getElementById('periode-label').textContent =
     `${formatDateCourt(semaines[0].lundi.date)} au ${formatDateCourt(addDays(new Date(semaines[semaines.length-1].lundiISO), 6))} — généré automatiquement à partir des disponibilités`;
 
@@ -222,7 +278,7 @@ async function init(){
         const dateNominale = formatDateCourt(info.nominal);
         cellulesHTML[slot.cle] = `<div class="pill shift"><strong>FÉRIÉ</strong><span class="date">${dateNominale}</span><span class="note">décalé au vendredi</span></div>`;
         const pillVendredi = choisi
-          ? `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span><span class="note">Session ${slot.type} décalée (férié du ${dateNominale})</span></div>`
+          ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span><span class="note">Session ${slot.type} décalée (férié du ${dateNominale})</span></div>`
           : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
         if (cellulesHTML.vendredi){
           cellulesHTML.vendredi += pillVendredi; // rare cas de deux jours fériés la même semaine — on n'écrase rien
@@ -233,7 +289,7 @@ async function init(){
         }
         resultat[slot.cle] = 'FÉRIÉ';
       } else if (choisi){
-        cellulesHTML[slot.cle] = `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span>${niveau==='fallback'?'<span class="note">Filet de sécurité — aucun indépendant disponible</span>':''}</div>`;
+        cellulesHTML[slot.cle] = `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span>${niveau==='fallback'?'<span class="note">Filet de sécurité — aucun indépendant disponible</span>':''}</div>`;
       } else {
         cellulesHTML[slot.cle] = `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
       }
@@ -252,7 +308,7 @@ async function init(){
       resultat.regroupement = choisi || '';
       if (!choisi) trousCount++;
       cellulesHTML.regroupement = choisi
-        ? `<div class="pill ${niveau}"><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
+        ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
         : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
     } else {
       cellulesHTML.regroupement = '<span class="empty-cell">—</span>';
@@ -270,7 +326,7 @@ async function init(){
   });
   const total = Object.values(toutesHeures).reduce((a,b) => a+b, 0);
 
-  document.getElementById('main-content').innerHTML = `
+  document.getElementById('resultats').innerHTML = `
     <div class="card">
       <h2>Planning calculé</h2>
       <div class="legend">
@@ -279,11 +335,12 @@ async function init(){
         <span><span class="dot shift"></span> Décalé au vendredi (férié)</span>
         <span><span class="dot alert"></span> Non couvert</span>
       </div>
+      <p style="font-size:12.5px;color:var(--muted);margin-top:-8px;margin-bottom:14px;">Chaque formateur a sa propre couleur, stable d'un affichage à l'autre.</p>
       <table>
         <thead><tr><th>Semaine</th><th>Lundi<br><small>NTC</small></th><th>Mardi<br><small>CC/CV</small></th><th>Mercredi<br><small>MEM</small></th><th>Vendredi<br><small>décalage férié</small></th><th>Regroupement<br><small>dernier jeudi · Marseille</small></th></tr></thead>
         <tbody>${lignesHTML.join('')}</tbody>
       </table>
-      ${trousCount > 0 ? `<div class="alert-box"><strong>⚠ ${trousCount} créneau${trousCount>1?'x':''} non couvert${trousCount>1?'s':''} sur les 3 mois à venir</strong>Personne (ni indépendant, ni filet de sécurité) n'est disponible. C'est ce type de trou que l'alerte automatique par e-mail signalera une fois Formspree branché.</div>` : ''}
+      ${trousCount > 0 ? `<div class="alert-box"><strong>⚠ ${trousCount} créneau${trousCount>1?'x':''} non couvert${trousCount>1?'s':''} sur cette période</strong>Personne (ni indépendant, ni filet de sécurité) n'est disponible. Une alerte par e-mail est envoyée automatiquement dès que tous les formateurs actifs ont rempli leurs disponibilités et qu'un trou comme celui-ci subsiste.</div>` : ''}
       <div class="actions">
         <button class="btn-primary" id="btn-enregistrer">Enregistrer ce planning dans le Sheet</button>
       </div>
