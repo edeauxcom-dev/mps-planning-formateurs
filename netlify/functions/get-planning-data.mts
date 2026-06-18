@@ -6,6 +6,18 @@ import {
   ONGLET_PLANNING,
 } from "../../lib/sheets.mts";
 
+// Sécurité : si une cellule a malgré tout été interprétée comme une date par
+// Google Sheets (numéro de série, jours depuis le 30/12/1899), on la reconvertit
+// en chaîne ISO "AAAA-MM-JJ" au lieu de laisser passer un nombre brut.
+function versTexteDate(valeur: any): string {
+  if (typeof valeur === "number") {
+    const ms = Math.round((valeur - 25569) * 86400 * 1000);
+    const d = new Date(ms);
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+  }
+  return (valeur || "").toString();
+}
+
 export default async (req: Request, context: Context) => {
   try {
     const [formateursRaw, disposRaw, planningRaw] = await Promise.all([
@@ -23,7 +35,7 @@ export default async (req: Request, context: Context) => {
         mardi: (r[3] || "").toString().trim().toLowerCase() === "oui",
         mercredi: (r[4] || "").toString().trim().toLowerCase() === "oui",
         marseille: (r[5] || "").toString().trim().toLowerCase() === "oui",
-        actifApartir: r[6] || "",
+        actifApartir: versTexteDate(r[6]),
         notes: r[7] || "",
       }));
 
@@ -32,11 +44,11 @@ export default async (req: Request, context: Context) => {
       .map((r) => ({
         horodatage: r[0] || "",
         formateur: r[1] || "",
-        dateEffective: r[2] || "",
+        dateEffective: versTexteDate(r[2]),
         jourHabituel: r[3] || "",
         type: r[4] || "",
         decale: (r[5] || "").toString().trim().toLowerCase() === "oui",
-        periodeDebut: r[6] || "",
+        periodeDebut: versTexteDate(r[6]),
         horizonMois: r[7] || "",
       }));
 
