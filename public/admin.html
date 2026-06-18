@@ -145,6 +145,10 @@ function construireSemaines(){
   return semaines;
 }
 
+function normaliserNom(nom){
+  return (nom || "").trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+}
+
 function estActif(formateur, dateSlot){
   const m = (formateur.actifApartir || "").match(/(\d{2})\/(\d{2})\/(\d{4})/);
   if (!m) return true; // pas de date reconnue -> déjà actif
@@ -153,7 +157,7 @@ function estActif(formateur, dateSlot){
 }
 
 function trouverDisponibles(disponibilites, dateISO, type){
-  return disponibilites.filter(d => d.dateEffective === dateISO && d.type === type).map(d => d.formateur);
+  return disponibilites.filter(d => d.dateEffective === dateISO && d.type === type).map(d => normaliserNom(d.formateur));
 }
 
 function choisirParRotation(noms, heures){
@@ -203,7 +207,7 @@ async function init(){
       const dateISO = formatISO(info.date);
       const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, slot.type);
 
-      const candidats1 = tier1.filter(f => dispoNoms.includes(f.nom) && f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
+      const candidats1 = tier1.filter(f => dispoNoms.includes(normaliserNom(f.nom)) && f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
       let choisi = null, niveau = null;
       if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] += 3.5; niveau = 'ok'; }
       else {
@@ -238,7 +242,7 @@ async function init(){
     if (semaine.marseille){
       const dateISO = formatISO(semaine.marseille.date);
       const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, 'MARSEILLE');
-      const candidats1 = tier1.filter(f => dispoNoms.includes(f.nom) && f.marseille && estActif(f, semaine.marseille.date)).map(f => f.nom);
+      const candidats1 = tier1.filter(f => dispoNoms.includes(normaliserNom(f.nom)) && f.marseille && estActif(f, semaine.marseille.date)).map(f => f.nom);
       let choisi = null, niveau = null;
       if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] += 7; niveau = 'ok'; }
       else {
