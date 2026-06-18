@@ -87,10 +87,12 @@ export async function sheetsGet(range: string): Promise<any[][]> {
   return data.values || [];
 }
 
-/** Ajoute des lignes à la fin d'un onglet. */
+/** Ajoute des lignes à la fin d'un onglet. RAW empêche Sheets de réinterpréter
+ * automatiquement nos chaînes (ex: "2026-06-23" deviendrait un numéro de série
+ * de date avec USER_ENTERED, ce qui casse toute comparaison de texte ensuite). */
 export async function sheetsAppend(range: string, rows: any[][]): Promise<void> {
   await sheetsFetch(
-    `/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+    `/values/${encodeURIComponent(range)}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
     {
       method: "POST",
       body: JSON.stringify({ values: rows }),
@@ -98,13 +100,13 @@ export async function sheetsAppend(range: string, rows: any[][]): Promise<void> 
   );
 }
 
-/** Met à jour un ensemble de cellules ponctuelles en un seul appel. */
+/** Met à jour un ensemble de cellules ponctuelles en un seul appel (RAW pour la même raison que sheetsAppend). */
 export async function sheetsBatchUpdate(updates: { range: string; values: any[][] }[]): Promise<void> {
   if (updates.length === 0) return;
   await sheetsFetch(`/values:batchUpdate`, {
     method: "POST",
     body: JSON.stringify({
-      valueInputOption: "USER_ENTERED",
+      valueInputOption: "RAW",
       data: updates,
     }),
   });
