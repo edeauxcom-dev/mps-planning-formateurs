@@ -57,10 +57,33 @@
   .btn-primary{ background:var(--mps-blue); color:#fff; } .btn-primary:hover{ background:var(--mps-blue-dark); }
   .btn-primary:disabled{ opacity:0.6; cursor:default; }
   .save-feedback{ margin-top:14px; font-size:13.5px; color:var(--ok-text); }
-  .loading, .erreur{ padding:40px; text-align:center; color:var(--muted); }
-  .erreur{ color:var(--alert-text); }
+  .cell-editable{ position:relative; }
+  .btn-edit{
+    position:absolute; top:4px; right:4px;
+    background:transparent; border:none; cursor:pointer;
+    font-size:13px; opacity:0.4; padding:2px;
+    border-radius:4px;
+  }
+  .btn-edit:hover{ opacity:1; background:var(--line); }
+  .edit-popup{
+    position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+    background:#fff; border:1px solid var(--line); border-radius:10px;
+    padding:24px; box-shadow:0 4px 24px rgba(0,0,0,0.15);
+    z-index:1000; min-width:280px;
+  }
+  .edit-popup h3{ margin:0 0 14px; font-size:16px; color:var(--mps-blue-dark); }
+  .edit-popup select{ width:100%; padding:9px; border:1px solid var(--line); border-radius:6px; font-family:'DM Sans',sans-serif; margin-bottom:14px; }
+  .edit-popup .actions{ display:flex; gap:10px; }
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:999; }
   footer{ text-align:center; padding:20px; font-size:12px; color:#9aa1a8; }
   footer .signature{ color:var(--oe-teal); font-weight:700; } footer .signature .gold{ color:var(--oe-gold); }
+  .cell-editable{ position:relative; }
+  .btn-edit{ position:absolute; top:4px; right:4px; background:transparent; border:none; cursor:pointer; font-size:13px; opacity:0.35; padding:2px; border-radius:4px; }
+  .btn-edit:hover{ opacity:1; background:var(--line); }
+  .edit-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:999; }
+  .edit-popup{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px; box-shadow:0 4px 24px rgba(0,0,0,0.15); z-index:1000; min-width:300px; }
+  .edit-popup h3{ margin:0 0 14px; font-size:16px; color:var(--mps-blue-dark); }
+  .edit-popup select{ width:100%; padding:9px; border:1px solid var(--line); border-radius:6px; font-family:'DM Sans',sans-serif; margin-bottom:14px; }
 </style>
 </head>
 <body>
@@ -77,6 +100,17 @@
 <main id="main-content">
   <div class="loading">Chargement des disponibilités…</div>
 </main>
+
+<!-- Popup d'édition manuelle -->
+<div id="edit-overlay" class="edit-overlay" style="display:none;" onclick="fermerEdition()"></div>
+<div id="edit-popup" class="edit-popup" style="display:none;">
+  <h3 id="edit-titre">Modifier le créneau</h3>
+  <select id="edit-select"><option value="">— Laisser vide (non couvert) —</option></select>
+  <div style="display:flex;gap:10px;">
+    <button class="btn-primary" id="edit-valider">Valider</button>
+    <button class="btn-secondary" onclick="fermerEdition()">Annuler</button>
+  </div>
+</div>
 
 <footer>
   Outil conçu par <span class="signature">Outi'<span class="gold">e</span>Déaux</span> — Votre Outil Digital Idéal Personnalisé
@@ -221,12 +255,31 @@ async function init(){
           </select>
         </div>
         <button class="btn-primary" id="btn-actualiser">Actualiser l'affichage</button>
+        <button class="btn-secondary" id="btn-lock" style="margin-left:auto;">${donneesGlobales.verrouille ? '🔓 Dégeler le planning' : '🔒 Figer le planning'}</button>
+      </div>
+      <div id="lock-status" style="margin-top:10px;font-size:13px;color:${donneesGlobales.verrouille ? 'var(--ok-text)' : 'var(--muted)'};">
+        ${donneesGlobales.verrouille ? '✅ Planning figé — les formateurs ne peuvent plus se substituer sur les créneaux déjà couverts.' : 'Planning ouvert — les formateurs peuvent encore soumettre leurs disponibilités.'}
       </div>
     </div>
     <div id="resultats"></div>
   `;
   document.getElementById('dateDebutAffichage').value = formatISO(new Date());
   document.getElementById('btn-actualiser').addEventListener('click', genererPlanning);
+  document.getElementById('btn-lock').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-lock');
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'toggle-lock'}) });
+      const d = await res.json();
+      donneesGlobales.verrouille = d.verrouille;
+      btn.textContent = d.verrouille ? '🔓 Dégeler le planning' : '🔒 Figer le planning';
+      document.getElementById('lock-status').textContent = d.verrouille
+        ? '✅ Planning figé — les formateurs ne peuvent plus se substituer sur les créneaux déjà couverts.'
+        : 'Planning ouvert — les formateurs peuvent encore soumettre leurs disponibilités.';
+      document.getElementById('lock-status').style.color = d.verrouille ? 'var(--ok-text)' : 'var(--muted)';
+    } catch(e) { alert('Erreur : ' + e.message); }
+    btn.disabled = false;
+  });
 
   genererPlanning();
 }
@@ -316,7 +369,28 @@ function genererPlanning(){
     if (!cellulesHTML.vendredi) cellulesHTML.vendredi = '<span class="empty-cell">—</span>';
 
     aEnregistrer.push(resultat);
-    lignesHTML.push(`<tr><td class="week-label">${semaine.label}</td><td>${cellulesHTML.lundi}</td><td>${cellulesHTML.mardi}</td><td>${cellulesHTML.mercredi}</td><td>${cellulesHTML.vendredi}</td><td>${cellulesHTML.regroupement}</td></tr>`);
+
+    // Construire les cellules avec bouton d'édition inline
+    const nomFormateursSelect = donneesGlobales.formateurs
+      .filter(f => f.type.toLowerCase().startsWith('indépendant'))
+      .map(f => `<option value="${f.nom}">${f.nom}</option>`)
+      .join('');
+
+    function celluleEditable(cellHTML, lundiISO, colonne){
+      return `<div class="cell-editable">
+        ${cellHTML}
+        <button class="btn-edit" onclick="ouvrirEdition('${lundiISO}','${colonne}',this)" title="Modifier">✏️</button>
+      </div>`;
+    }
+
+    lignesHTML.push(`<tr>
+      <td class="week-label">${semaine.label}</td>
+      <td>${celluleEditable(cellulesHTML.lundi, semaine.lundiISO, 'lundi')}</td>
+      <td>${celluleEditable(cellulesHTML.mardi, semaine.lundiISO, 'mardi')}</td>
+      <td>${celluleEditable(cellulesHTML.mercredi, semaine.lundiISO, 'mercredi')}</td>
+      <td>${cellulesHTML.vendredi !== '<span class="empty-cell">—</span>' ? celluleEditable(cellulesHTML.vendredi, semaine.lundiISO, 'vendredi') : cellulesHTML.vendredi}</td>
+      <td>${cellulesHTML.regroupement !== '<span class="empty-cell">—</span>' ? celluleEditable(cellulesHTML.regroupement, semaine.lundiISO, 'regroupement') : cellulesHTML.regroupement}</td>
+    </tr>`);
   });
 
   const toutesHeures = {};
@@ -374,6 +448,63 @@ function genererPlanning(){
     }
     btn.disabled = false; btn.textContent = 'Enregistrer ce planning dans le Sheet';
   });
+}
+
+// ─── Édition manuelle d'une cellule du planning ───────────────────────────
+let editEnCours = null;
+
+function ouvrirEdition(lundiISO, colonne, btnEl){
+  const select = document.getElementById('edit-select');
+  const formateurs = (donneesGlobales.formateurs || [])
+    .filter(f => f.type.toLowerCase().startsWith('indépendant') || f.type.toLowerCase().startsWith('fallback'));
+
+  select.innerHTML = '<option value="">— Laisser vide (non couvert) —</option>';
+  formateurs.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.nom;
+    opt.textContent = f.nom;
+    select.appendChild(opt);
+  });
+
+  // Pré-sélectionner la valeur actuelle si elle existe
+  const ligne = donneesGlobales.planningExistant && donneesGlobales.planningExistant[lundiISO];
+  if (ligne && ligne[colonne]) select.value = ligne[colonne];
+
+  const labels = {lundi:'Lundi (NTC)', mardi:'Mardi (CC/CV)', mercredi:'Mercredi (MEM)', vendredi:'Vendredi (décalé)', regroupement:'Regroupement Marseille'};
+  document.getElementById('edit-titre').textContent = `Modifier — ${labels[colonne] || colonne} — sem. ${lundiISO}`;
+
+  editEnCours = { lundiISO, colonne };
+
+  document.getElementById('edit-overlay').style.display = 'block';
+  document.getElementById('edit-popup').style.display = 'block';
+
+  document.getElementById('edit-valider').onclick = async () => {
+    const valeur = select.value;
+    const btn = document.getElementById('edit-valider');
+    btn.disabled = true; btn.textContent = 'Enregistrement…';
+    try {
+      const res = await fetch('/api/update', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'update-planning', lundiISO, colonne, valeur })
+      });
+      if (!res.ok) throw new Error((await res.json()).erreur || 'Erreur serveur');
+      // Mise à jour locale du cache
+      if (!donneesGlobales.planningExistant) donneesGlobales.planningExistant = {};
+      if (!donneesGlobales.planningExistant[lundiISO]) donneesGlobales.planningExistant[lundiISO] = {};
+      donneesGlobales.planningExistant[lundiISO][colonne] = valeur;
+      fermerEdition();
+      genererPlanning();
+    } catch(e) {
+      alert('Erreur : ' + e.message);
+      btn.disabled = false; btn.textContent = 'Valider';
+    }
+  };
+}
+
+function fermerEdition(){
+  document.getElementById('edit-overlay').style.display = 'none';
+  document.getElementById('edit-popup').style.display = 'none';
+  editEnCours = null;
 }
 
 init();

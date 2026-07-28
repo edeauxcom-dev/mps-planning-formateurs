@@ -209,8 +209,44 @@
     font-size:12.5px;
     color:var(--muted);
   }
-  .marseille{
+  .presentiel-cell{
     background:#FFF9EC;
+    border-left:3px solid var(--gold);
+  }
+  .badge-presentiel{
+    display:inline-block;
+    background:var(--gold);
+    color:#fff;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:10px;
+    margin-top:4px;
+  }
+  .slot-grise{
+    opacity:0.55;
+  }
+  .slot-grise input[type="checkbox"]{
+    cursor:not-allowed;
+  }
+  .deja-couvert{
+    display:inline-block;
+    background:#E2F0E8;
+    color:#2F7A52;
+    font-size:10.5px;
+    font-weight:700;
+    padding:2px 7px;
+    border-radius:10px;
+    margin-top:4px;
+  }
+  .bandeau-verrouille{
+    background:#EAF4F1;
+    border:1.5px solid var(--teal);
+    border-radius:8px;
+    padding:14px 18px;
+    font-size:14px;
+    color:var(--teal-dark);
+    margin-bottom:18px;
   }
   .marseille .badge{
     display:inline-block;
@@ -459,14 +495,36 @@ function journeeMarseille(year, monthIndex, feries){
   return dateEffective(jeudi, feries);
 }
 
+
+// ─── Constantes de schéma ────────────────────────────────────────────────────
+const DATE_NOUVEAU_SCHEMA = new Date(2026, 9, 1); // 1er octobre 2026
+function estNouveauSchema(date){ return date >= DATE_NOUVEAU_SCHEMA; }
+function estDernierDuMois(date){ return addDays(date, 7).getMonth() !== date.getMonth(); }
+
+// ─── Données globales ─────────────────────────────────────────────────────────
 let semainesData = [];
+let planningActuel = {};
+let planningVerrouille = false;
+
+function typeCreneauPourJour(date, jourHabituel){
+  const map = {lundi:'NTC', mardi:'CC/CV', mercredi:'MEM'};
+  const base = map[jourHabituel];
+  if (!estNouveauSchema(date)) return { type: base, presentiel: false };
+  const pres = estDernierDuMois(date);
+  return { type: pres ? base + '_PRESENTIEL' : base, presentiel: pres };
+}
+
+function dejaCouverte(lundiISO, colonne){
+  if (!planningVerrouille) return false;
+  const ligne = planningActuel[lundiISO];
+  if (!ligne) return false;
+  const val = (ligne[colonne] || '').trim();
+  return val !== '' && val !== 'FÉRIÉ';
+}
 
 function genererCalendrier(){
   const inputDate = document.getElementById('dateDebut').value;
-  if (!inputDate){
-    alert("Choisissez une date de début de trimestre.");
-    return;
-  }
+  if (!inputDate){ alert("Choisissez une date de début."); return; }
   const debut = lundiDeLaSemaine(new Date(inputDate + "T00:00:00"));
   const horizon = parseInt(document.getElementById('horizonMois').value);
   const fin = new Date(debut);
@@ -474,29 +532,26 @@ function genererCalendrier(){
 
   const feries = [...joursFeriesFR(debut.getFullYear()), ...joursFeriesFR(debut.getFullYear()+1)];
 
-  // Pré-calcul des journées Marseille pour tous les mois couverts
   const journeesMarseille = [];
   let curseur = new Date(debut.getFullYear(), debut.getMonth(), 1);
   while (curseur < fin){
-    journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries));
+    if (!estNouveauSchema(curseur)){
+      journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries));
+    }
     curseur.setMonth(curseur.getMonth() + 1);
   }
 
   semainesData = [];
   let lundi = new Date(debut);
   while (lundi < fin){
-    const mardiHabituel = addDays(lundi, 1);
-    const mercrediHabituel = addDays(lundi, 2);
     const dimanche = addDays(lundi, 6);
-
-    const marseilleDeLaSemaine = journeesMarseille.find(jm => jm.date >= lundi && jm.date <= dimanche);
-
-    semainesData.push({
-      lundi: dateEffective(new Date(lundi), feries),
-      mardi: dateEffective(mardiHabituel, feries),
-      mercredi: dateEffective(mercrediHabituel, feries),
-      marseille: marseilleDeLaSemaine || null
-    });
+    const lundiInfo  = { ...dateEffective(new Date(lundi), feries), ...typeCreneauPourJour(dateEffective(new Date(lundi), feries).date, 'lundi') };
+    const mardiInfo  = { ...dateEffective(addDays(lundi,1), feries), ...typeCreneauPourJour(dateEffective(addDays(lundi,1), feries).date, 'mardi') };
+    const mercrediInfo = { ...dateEffective(addDays(lundi,2), feries), ...typeCreneauPourJour(dateEffective(addDays(lundi,2), feries).date, 'mercredi') };
+    const marseille = !estNouveauSchema(lundi)
+      ? journeesMarseille.find(jm => jm.date >= lundi && jm.date <= dimanche) || null
+      : null;
+    semainesData.push({ lundiISO: formatISO(new Date(lundi)), lundi: lundiInfo, mardi: mardiInfo, mercredi: mercrediInfo, marseille });
     lundi = addDays(lundi, 7);
   }
 
@@ -505,48 +560,43 @@ function genererCalendrier(){
   document.getElementById('calendrierCard').scrollIntoView({behavior:'smooth'});
 }
 
+function slotHTML(idx, key, info, lundiISO){
+  const couverte = dejaCouverte(lundiISO, key === 'marseille' ? 'regroupement' : key);
+  const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
+  const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
+  const badgeCouvert = couverte ? '<div class="deja-couvert">✓ Déjà couvert</div>' : '';
+  return `<div class="slot${couverte ? ' slot-grise' : ''}">
+    <input type="checkbox" data-week="${idx}" data-jour="${key}" ${couverte ? 'disabled' : ''}>
+    <div class="slot-date">${formatDateCourt(info.date)}${badgePres}${badgeFerie}${badgeCouvert}</div>
+  </div>`;
+}
+
 function renderCalendrier(){
   const tbody = document.getElementById('calendarBody');
   tbody.innerHTML = '';
-
   semainesData.forEach((semaine, idx) => {
     const tr = document.createElement('tr');
-
     const tdLabel = document.createElement('td');
     tdLabel.className = 'week-label';
-    tdLabel.textContent = 'S' + (idx+1);
+    tdLabel.innerHTML = 'S'+(idx+1)+'<br><small>'+formatDateCourt(semaine.lundi.date)+'</small>';
     tr.appendChild(tdLabel);
 
     [['lundi', semaine.lundi], ['mardi', semaine.mardi], ['mercredi', semaine.mercredi]].forEach(([key, info]) => {
       const td = document.createElement('td');
       if (info.decalee) td.classList.add('marseille');
-      td.innerHTML = `
-        <div class="slot">
-          <input type="checkbox" data-week="${idx}" data-jour="${key}">
-          <div class="slot-date">
-            ${formatDateCourt(info.date)}
-            ${info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : ''}
-          </div>
-        </div>`;
+      if (info.presentiel) td.classList.add('presentiel-cell');
+      td.innerHTML = slotHTML(idx, key, info, semaine.lundiISO);
       tr.appendChild(td);
     });
 
-    const tdMarseille = document.createElement('td');
+    const tdMars = document.createElement('td');
     if (semaine.marseille){
-      tdMarseille.className = 'marseille';
-      tdMarseille.innerHTML = `
-        <div class="slot">
-          <input type="checkbox" data-week="${idx}" data-jour="marseille">
-          <div class="slot-date">
-            ${formatDateCourt(semaine.marseille.date)}
-            ${semaine.marseille.decalee ? '<div class="shifted">Décalée (jour férié)</div>' : ''}
-          </div>
-        </div>`;
+      tdMars.classList.add('marseille');
+      tdMars.innerHTML = slotHTML(idx, 'marseille', { ...semaine.marseille, presentiel: false }, semaine.lundiISO);
     } else {
-      tdMarseille.innerHTML = '<span class="empty-cell">—</span>';
+      tdMars.innerHTML = '<span class="empty-cell">—</span>';
     }
-    tr.appendChild(tdMarseille);
-
+    tr.appendChild(tdMars);
     tbody.appendChild(tr);
   });
 }
@@ -597,9 +647,9 @@ async function validerDispos(){
     const jour = cb.dataset.jour;
     const semaine = semainesData[weekIdx];
     let info, libelle, jourHabituel, type;
-    if (jour === 'lundi'){ info = semaine.lundi; libelle = 'Lundi — NTC (visio)'; jourHabituel = 'Lundi'; type = 'NTC'; }
-    else if (jour === 'mardi'){ info = semaine.mardi; libelle = 'Mardi — CC/CV (visio)'; jourHabituel = 'Mardi'; type = 'CC/CV'; }
-    else if (jour === 'mercredi'){ info = semaine.mercredi; libelle = 'Mercredi — MEM (visio)'; jourHabituel = 'Mercredi'; type = 'MEM'; }
+    if (jour === 'lundi'){ info = semaine.lundi; jourHabituel = 'Lundi'; type = semaine.lundi.type; libelle = semaine.lundi.presentiel ? 'Lundi — NTC (présentiel Marseille · 7h)' : 'Lundi — NTC (visio)'; }
+    else if (jour === 'mardi'){ info = semaine.mardi; jourHabituel = 'Mardi'; type = semaine.mardi.type; libelle = semaine.mardi.presentiel ? 'Mardi — CC/CV (présentiel Marseille · 7h)' : 'Mardi — CC/CV (visio)'; }
+    else if (jour === 'mercredi'){ info = semaine.mercredi; jourHabituel = 'Mercredi'; type = semaine.mercredi.type; libelle = semaine.mercredi.presentiel ? 'Mercredi — MEM (présentiel Marseille · 7h)' : 'Mercredi — MEM (visio)'; }
     else { info = semaine.marseille; libelle = 'Journée regroupement — Marseille (présentiel)'; jourHabituel = 'Jeudi'; type = 'MARSEILLE'; }
     if (info.decalee) libelle += ' [décalé au vendredi — jour férié]';
     dispos.push({ date: formatDateLong(info.date), creneau: libelle });
@@ -650,13 +700,18 @@ async function validerDispos(){
   document.getElementById('dateDebut').value = formatISO(prochainLundi);
 })();
 
-// Chargement de la liste des formateurs indépendants depuis le Sheet
+// Chargement de la liste des formateurs + planning actuel + statut lock
 (async function chargerFormateurs(){
   const select = document.getElementById('nomFormateur');
   try {
     const res = await fetch('/api/planning-data');
     if (!res.ok) throw new Error('Erreur ' + res.status);
     const data = await res.json();
+
+    // Stocker le planning actuel et le statut lock pour griser les cases
+    planningActuel = data.planningExistant || {};
+    planningVerrouille = data.verrouille || false;
+
     const independants = (data.formateurs || []).filter(f => (f.type || '').toLowerCase().startsWith('indépendant'));
     select.innerHTML = '<option value="" disabled selected>Choisissez votre nom…</option>';
     independants.forEach(f => {
@@ -667,6 +722,43 @@ async function validerDispos(){
     });
     if (independants.length === 0){
       select.innerHTML = '<option value="" disabled selected>Aucun formateur trouvé — contactez l\'administration</option>';
+    }
+
+    // Si le planning est figé et tous les créneaux des 3 prochains mois couverts,
+    // décaler automatiquement le formulaire sur la période suivante (mois 4-6)
+    if (planningVerrouille){
+      const inputDate = document.getElementById('dateDebut');
+      const horizon = document.getElementById('horizonMois');
+      const dateActuelle = new Date(inputDate.value + 'T00:00:00');
+      const fin3mois = new Date(dateActuelle);
+      fin3mois.setMonth(fin3mois.getMonth() + 3);
+      // Compter les semaines couvertes dans les 3 prochains mois
+      let lundi = lundiDeLaSemaine(dateActuelle);
+      let tousCouverts = true;
+      while (lundi < fin3mois){
+        const iso = formatISO(lundi);
+        const feries = [...joursFeriesFR(lundi.getFullYear()), ...joursFeriesFR(lundi.getFullYear()+1)];
+        const lInfo = dateEffective(new Date(lundi), feries);
+        const mInfo = dateEffective(addDays(lundi,1), feries);
+        const mInfo2 = dateEffective(addDays(lundi,2), feries);
+        ['lundi','mardi','mercredi'].forEach(key => {
+          if (!dejaCouverte(iso, key)) tousCouverts = false;
+        });
+        lundi = addDays(lundi, 7);
+      }
+      if (tousCouverts){
+        // Décaler sur mois 4-6
+        const nouvDebut = new Date(dateActuelle);
+        nouvDebut.setMonth(nouvDebut.getMonth() + 3);
+        inputDate.value = formatISO(lundiDeLaSemaine(nouvDebut));
+        const bandeauCard = document.querySelector('.card');
+        if (bandeauCard){
+          const bandeau = document.createElement('div');
+          bandeau.className = 'bandeau-verrouille';
+          bandeau.innerHTML = '✅ <strong>Les 3 prochains mois sont complets.</strong> Tu peux d\'ores et déjà te positionner sur la période suivante (mois 4 à 6).';
+          bandeauCard.insertBefore(bandeau, bandeauCard.firstChild);
+        }
+      }
     }
   } catch (e) {
     select.innerHTML = '<option value="" disabled selected>Erreur de chargement — rechargez la page</option>';
