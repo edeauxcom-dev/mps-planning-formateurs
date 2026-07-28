@@ -530,19 +530,48 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
         body: JSON.stringify({ action:'update-planning', lundiISO, colonne, valeur })
       });
       if (!res.ok) throw new Error((await res.json()).erreur || 'Erreur serveur');
-      // Mise à jour locale du cache
+      // Mise à jour locale du cache sans rechargement de page
       if (!donneesGlobales.planningExistant) donneesGlobales.planningExistant = {};
-      if (!donneesGlobales.planningExistant[lundiISO]) donneesGlobales.planningExistant[lundiISO] = {};
+      if (!donneesGlobales.planningExistant[lundiISO]) donneesGlobales.planningExistant[lundiISO] = { lundiISO };
       donneesGlobales.planningExistant[lundiISO][colonne] = valeur;
       fermerEdition();
       btn.disabled = false; btn.textContent = 'Valider';
-      // Rechargement simple : plus fiable qu'un re-render partiel
-      setTimeout(() => window.location.reload(), 300);
+      // Mettre à jour uniquement la cellule concernée visuellement
+      mettreAJourCellule(lundiISO, colonne, valeur);
     } catch(e) {
       alert('Erreur : ' + e.message);
       btn.disabled = false; btn.textContent = 'Valider';
     }
   };
+}
+
+function mettreAJourCellule(lundiISO, colonne, valeur){
+  // Trouver le bouton ✏️ qui correspond à cette cellule et remonter au pill parent
+  const btn = document.querySelector(`button.btn-edit[onclick*="${lundiISO}"][onclick*="${colonne}"]`);
+  if (!btn) return; // cellule pas visible dans la période affichée
+  const cellWrapper = btn.closest('.cell-editable');
+  if (!cellWrapper) return;
+
+  let pillHTML = '';
+  if (valeur === 'NON_COUVERT' || valeur === '') {
+    pillHTML = `<div class="pill alert"><strong>⚠ Non couvert</strong></div>`;
+  } else if (valeur === 'PAS_DE_SESSION') {
+    pillHTML = `<div class="pill pas-session"><strong>📅 Pas de session</strong></div>`;
+  } else if (valeur === 'FÉRIÉ') {
+    pillHTML = `<div class="pill shift"><strong>FÉRIÉ</strong></div>`;
+  } else {
+    const couleurs = couleursFormateurs[valeur] || {};
+    const style = couleurs.bg ? `style="background:${couleurs.bg};border-color:${couleurs.border};color:${couleurs.text};"` : '';
+    pillHTML = `<div class="pill ok" ${style}><strong>${valeur}</strong></div>`;
+  }
+
+  // Remplacer le contenu sans toucher au bouton ✏️
+  const ancienPill = cellWrapper.querySelector('.pill');
+  if (ancienPill) {
+    ancienPill.outerHTML = pillHTML;
+  } else {
+    cellWrapper.insertAdjacentHTML('afterbegin', pillHTML);
+  }
 }
 
 function fermerEdition(){
