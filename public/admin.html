@@ -397,11 +397,14 @@ function genererPlanning(){
           if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] += 7; niveau = 'fallback'; }
         }
       }
-      resultat.regroupement = choisi || '';
-      if (!choisi) trousCount++;
-      cellulesHTML.regroupement = choisi
-        ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
-        : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
+      // Ne recalculer l'affichage final que si PAS_DE_SESSION/NON_COUVERT n'ont pas déjà été traités
+      if (valManuelleM !== 'PAS_DE_SESSION' && valManuelleM !== 'NON_COUVERT') {
+        resultat.regroupement = choisi || '';
+        if (!choisi) trousCount++;
+        cellulesHTML.regroupement = choisi
+          ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
+          : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
+      }
     } else {
       cellulesHTML.regroupement = '<span class="empty-cell">—</span>';
     }
