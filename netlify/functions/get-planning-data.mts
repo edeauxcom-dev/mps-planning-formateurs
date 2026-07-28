@@ -4,11 +4,9 @@ import {
   ONGLET_FORMATEURS,
   ONGLET_DISPONIBILITES,
   ONGLET_PLANNING,
+  ONGLET_CONFIG,
 } from "../../lib/sheets.mts";
 
-// Sécurité : si une cellule a malgré tout été interprétée comme une date par
-// Google Sheets (numéro de série, jours depuis le 30/12/1899), on la reconvertit
-// en chaîne ISO "AAAA-MM-JJ" au lieu de laisser passer un nombre brut.
 function versTexteDate(valeur: any): string {
   if (typeof valeur === "number") {
     const ms = Math.round((valeur - 25569) * 86400 * 1000);
@@ -20,10 +18,11 @@ function versTexteDate(valeur: any): string {
 
 export default async (req: Request, context: Context) => {
   try {
-    const [formateursRaw, disposRaw, planningRaw] = await Promise.all([
+    const [formateursRaw, disposRaw, planningRaw, configRaw] = await Promise.all([
       sheetsGet(`'${ONGLET_FORMATEURS}'!A2:H`),
       sheetsGet(`'${ONGLET_DISPONIBILITES}'!A2:H`),
       sheetsGet(`'${ONGLET_PLANNING}'!A1:G`),
+      sheetsGet(`'${ONGLET_CONFIG}'!A:B`).catch(() => [] as any[][]),
     ]);
 
     const formateurs = formateursRaw
@@ -52,14 +51,25 @@ export default async (req: Request, context: Context) => {
         horizonMois: r[7] || "",
       }));
 
-    // Lignes existantes du Planning, indexées par la clé technique (colonne G = lundi ISO)
-    const planningExistant: Record<string, string[]> = {};
+    const planningExistant: Record<string, any> = {};
     planningRaw.slice(1).forEach((r) => {
-      if (r[6]) planningExistant[r[6]] = r;
+      if (r[6]) {
+        planningExistant[r[6]] = {
+          lundi: r[1] || "",
+          mardi: r[2] || "",
+          mercredi: r[3] || "",
+          vendredi: r[4] || "",
+          regroupement: r[5] || "",
+          lundiISO: r[6] || "",
+        };
+      }
     });
 
+    const lockLigne = configRaw.find((r) => r[0] === "planning_verrouille");
+    const verrouille = lockLigne ? lockLigne[1].toString().trim().toLowerCase() === "oui" : false;
+
     return new Response(
-      JSON.stringify({ formateurs, disponibilites, planningExistant }),
+      JSON.stringify({ formateurs, disponibilites, planningExistant, verrouille }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (err: any) {
