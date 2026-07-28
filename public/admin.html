@@ -494,7 +494,8 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
       donneesGlobales.planningExistant[lundiISO][colonne] = valeur;
       fermerEdition();
       btn.disabled = false; btn.textContent = 'Valider';
-      try { genererPlanning(); } catch(e2) { console.warn('Rafraîchissement partiel :', e2); }
+      // Rechargement simple : plus fiable qu'un re-render partiel
+      setTimeout(() => window.location.reload(), 300);
     } catch(e) {
       alert('Erreur : ' + e.message);
       btn.disabled = false; btn.textContent = 'Valider';
