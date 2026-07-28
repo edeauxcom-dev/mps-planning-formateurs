@@ -80,6 +80,7 @@
   .cell-editable{ position:relative; }
   .btn-edit{ position:absolute; top:4px; right:4px; background:transparent; border:none; cursor:pointer; font-size:13px; opacity:0.35; padding:2px; border-radius:4px; }
   .btn-edit:hover{ opacity:1; background:var(--line); }
+  .pill.pas-session{ background:#F0F0F0; border:1px solid #BBBBBB; color:#666666; }
   .edit-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:999; }
   .edit-popup{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px; box-shadow:0 4px 24px rgba(0,0,0,0.15); z-index:1000; min-width:300px; }
   .edit-popup h3{ margin:0 0 14px; font-size:16px; color:var(--mps-blue-dark); }
@@ -320,7 +321,18 @@ function genererPlanning(){
       const valManuelle = planningLigne ? (planningLigne[slot.cle] || '').trim() : '';
 
       let choisi = null, niveau = null;
-      if (valManuelle && valManuelle !== 'FÉRIÉ') {
+      if (valManuelle === 'NON_COUVERT') {
+        // Case vidée intentionnellement — trou à signaler
+        choisi = null; niveau = null;
+        trousCount++;
+      } else if (valManuelle === 'PAS_DE_SESSION') {
+        // Vacances / fermeture — ne compte pas comme un trou
+        resultat[slot.cle] = 'PAS_DE_SESSION';
+        if (!info.decalee) {
+          cellulesHTML[slot.cle] = `<div class="pill pas-session"><strong>📅 Pas de session</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
+        }
+        return; // passer au slot suivant
+      } else if (valManuelle && valManuelle !== 'FÉRIÉ') {
         // Case déjà remplie manuellement → on l'affiche telle quelle, sans recalculer
         choisi = valManuelle;
         niveau = 'ok';
@@ -366,7 +378,13 @@ function genererPlanning(){
       const planningLigneM = data.planningExistant && data.planningExistant[semaine.lundiISO];
       const valManuelleM = planningLigneM ? (planningLigneM['regroupement'] || '').trim() : '';
       let choisi = null, niveau = null;
-      if (valManuelleM && valManuelleM !== 'FÉRIÉ') {
+      if (valManuelleM === 'NON_COUVERT') {
+        choisi = null; niveau = null;
+        trousCount++;
+      } else if (valManuelleM === 'PAS_DE_SESSION') {
+        resultat.regroupement = 'PAS_DE_SESSION';
+        cellulesHTML.regroupement = `<div class="pill pas-session"><strong>📅 Pas de session</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
+      } else if (valManuelleM && valManuelleM !== 'FÉRIÉ') {
         choisi = valManuelleM; niveau = 'ok';
         if (heuresTier1[choisi] === undefined) heuresTier1[choisi] = 0;
         heuresTier1[choisi] += 7;
@@ -416,6 +434,7 @@ function genererPlanning(){
 
   const toutesHeures = {};
   [...tier1, ...tier2].forEach(f => {
+    if (f.nom === 'NON_COUVERT') return;
     const h = (heuresTier1[f.nom] || 0) + (heuresTier2[f.nom] || 0);
     if (h > 0) toutesHeures[f.nom] = h;
   });
@@ -479,7 +498,7 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
   const formateurs = (donneesGlobales.formateurs || [])
     .filter(f => f.type.toLowerCase().startsWith('indépendant') || f.type.toLowerCase().startsWith('fallback'));
 
-  select.innerHTML = '<option value="">— Laisser vide (non couvert) —</option>';
+  select.innerHTML = '<option value="">— Laisser vide (non couvert) —</option><option value="PAS_DE_SESSION">📅 Pas de session (vacances / fermeture)</option>';
   formateurs.forEach(f => {
     const opt = document.createElement('option');
     opt.value = f.nom;
@@ -500,7 +519,9 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
   document.getElementById('edit-popup').style.display = 'block';
 
   document.getElementById('edit-valider').onclick = async () => {
-    const valeur = select.value;
+    // Valeur vide = trou intentionnel → sentinelle "NON_COUVERT"
+    // "PAS_DE_SESSION" est envoyé tel quel
+    const valeur = select.value === '' ? 'NON_COUVERT' : select.value;
     const btn = document.getElementById('edit-valider');
     btn.disabled = true; btn.textContent = 'Enregistrement…';
     try {
