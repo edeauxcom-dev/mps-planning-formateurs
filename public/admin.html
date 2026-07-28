@@ -493,7 +493,8 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
       if (!donneesGlobales.planningExistant[lundiISO]) donneesGlobales.planningExistant[lundiISO] = {};
       donneesGlobales.planningExistant[lundiISO][colonne] = valeur;
       fermerEdition();
-      genererPlanning();
+      btn.disabled = false; btn.textContent = 'Valider';
+      try { genererPlanning(); } catch(e2) { console.warn('Rafraîchissement partiel :', e2); }
     } catch(e) {
       alert('Erreur : ' + e.message);
       btn.disabled = false; btn.textContent = 'Valider';
