@@ -515,11 +515,15 @@ function typeCreneauPourJour(date, jourHabituel){
 }
 
 function dejaCouverte(lundiISO, colonne){
-  if (!planningVerrouille) return false;
   const ligne = planningActuel[lundiISO];
   if (!ligne) return false;
   const val = (ligne[colonne] || '').trim();
-  return val !== '' && val !== 'FÉRIÉ';
+  return val !== '' && val !== 'FÉRIÉ' && val !== 'NON_COUVERT';
+}
+
+// Case désactivée uniquement si planning figé ET déjà couverte
+function caseDesactivee(lundiISO, colonne){
+  return planningVerrouille && dejaCouverte(lundiISO, colonne);
 }
 
 function genererCalendrier(){
@@ -562,11 +566,12 @@ function genererCalendrier(){
 
 function slotHTML(idx, key, info, lundiISO){
   const couverte = dejaCouverte(lundiISO, key === 'marseille' ? 'regroupement' : key);
+  const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key);
   const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
   const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
   const badgeCouvert = couverte ? '<div class="deja-couvert">✓ Déjà couvert</div>' : '';
   return `<div class="slot${couverte ? ' slot-grise' : ''}">
-    <input type="checkbox" data-week="${idx}" data-jour="${key}" ${couverte ? 'disabled' : ''}>
+    <input type="checkbox" data-week="${idx}" data-jour="${key}" ${desactivee ? 'disabled' : ''}>
     <div class="slot-date">${formatDateCourt(info.date)}${badgePres}${badgeFerie}${badgeCouvert}</div>
   </div>`;
 }
