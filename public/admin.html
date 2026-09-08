@@ -31,8 +31,20 @@
   .dot.ok{ background:var(--ok-border); } .dot.alert{ background:var(--alert-border); }
   .dot.shift{ background:var(--shift-border); } .dot.fallback{ background:var(--fallback-border); }
   table{ width:100%; border-collapse:collapse; font-size:13.5px; }
-  thead th{ background:var(--mps-blue-dark); color:#fff; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; padding:10px 8px; text-align:left; }
+  thead th{ background:var(--mps-blue-dark); color:#fff; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:0.03em; padding:10px 8px; text-align:left; overflow:hidden; }
   thead th small{ display:block; font-weight:400; text-transform:none; color:#CFE3F2; font-size:11px; margin-top:2px; }
+  /* Popup mot de passe */
+  .pwd-overlay{ position:fixed; inset:0; background:linear-gradient(135deg,var(--mps-blue-dark),var(--mps-blue)); z-index:9999; display:flex; align-items:center; justify-content:center; }
+  .pwd-box{ background:#fff; border-radius:12px; padding:36px; max-width:340px; width:90%; text-align:center; box-shadow:0 8px 32px rgba(0,0,0,0.2); }
+  .pwd-box h2{ font-family:'Cormorant Garamond',serif; color:var(--mps-blue-dark); margin:0 0 8px; font-size:22px; }
+  .pwd-box p{ color:var(--muted); font-size:14px; margin:0 0 20px; }
+  .pwd-box input{ width:100%; padding:11px; border:1px solid var(--line); border-radius:6px; font-family:'DM Sans',sans-serif; font-size:15px; text-align:center; letter-spacing:0.1em; margin-bottom:14px; }
+  .pwd-box .erreur{ color:var(--alert-text); font-size:13px; margin-top:8px; }
+  /* Lock par période */
+  .lock-section{ background:#F7F9FB; border:1px solid var(--line); border-radius:8px; padding:16px; margin-top:14px; }
+  .lock-section label{ font-size:13px; font-weight:700; color:var(--muted); display:block; margin-bottom:6px; }
+  /* Bouton masse pas de session */
+  .btn-masse{ font-family:'DM Sans',sans-serif; font-weight:700; font-size:13px; border:1.5px solid var(--shift-border); border-radius:6px; cursor:pointer; padding:8px 14px; background:var(--shift-bg); color:#7A5E1E; }
   tbody tr:nth-child(even){ background:#FAFBFC; }
   td{ padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
   .week-label{ font-weight:700; color:var(--mps-blue-dark); white-space:nowrap; }
@@ -116,6 +128,17 @@
 <footer>
   Outil conçu par <span class="signature">Outi'<span class="gold">e</span>Déaux</span> — Votre Outil Digital Idéal Personnalisé
 </footer>
+
+<!-- Popup mot de passe admin -->
+<div id="pwd-overlay" class="pwd-overlay">
+  <div class="pwd-box">
+    <h2>Administration</h2>
+    <p>Accès réservé à My Partner School</p>
+    <input type="password" id="pwd-input" placeholder="••••••••" autocomplete="current-password">
+    <button class="btn-primary" style="width:100%;" onclick="verifierMotDePasse()">Accéder</button>
+    <div id="pwd-erreur" class="erreur" style="display:none;">Mot de passe incorrect</div>
+  </div>
+</div>
 
 <script>
 const JOURS_FR = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
@@ -224,6 +247,25 @@ function stylePersonne(nom){
   return c ? `style="background:${c.bg};border-color:${c.border};color:${c.text};"` : '';
 }
 
+// ─── Mot de passe admin ───────────────────────────────────────────────────────
+const MOT_DE_PASSE_ADMIN = "MPS2026!"; // Changez ce mot de passe !
+
+function verifierMotDePasse(){
+  const saisi = document.getElementById('pwd-input').value;
+  if (saisi === MOT_DE_PASSE_ADMIN) {
+    document.getElementById('pwd-overlay').style.display = 'none';
+    init();
+  } else {
+    document.getElementById('pwd-erreur').style.display = 'block';
+    document.getElementById('pwd-input').value = '';
+    document.getElementById('pwd-input').focus();
+  }
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const inp = document.getElementById('pwd-input');
+  if (inp) { inp.addEventListener('keydown', e => { if(e.key==='Enter') verifierMotDePasse(); }); inp.focus(); }
+});
+
 let donneesGlobales = null;
 
 async function init(){
@@ -256,30 +298,106 @@ async function init(){
           </select>
         </div>
         <button class="btn-primary" id="btn-actualiser">Actualiser l'affichage</button>
-        <button class="btn-secondary" id="btn-lock" style="margin-left:auto;">${donneesGlobales.verrouille ? '🔓 Dégeler le planning' : '🔒 Figer le planning'}</button>
       </div>
-      <div id="lock-status" style="margin-top:10px;font-size:13px;color:${donneesGlobales.verrouille ? 'var(--ok-text)' : 'var(--muted)'};">
-        ${donneesGlobales.verrouille ? '✅ Planning figé — les formateurs ne peuvent plus se substituer sur les créneaux déjà couverts.' : 'Planning ouvert — les formateurs peuvent encore soumettre leurs disponibilités.'}
+      <div class="lock-section">
+        <label>🔒 Figer une période (les créneaux couverts ne pourront plus être remplacés)</label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <div>
+            <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block;">Du</label>
+            <input type="date" id="lockDebut" style="padding:8px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block;">Au</label>
+            <input type="date" id="lockFin" style="padding:8px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+          </div>
+          <button class="btn-secondary" id="btn-lock" style="margin-top:18px;">${donneesGlobales.verrouille ? '🔓 Dégeler' : '🔒 Figer cette période'}</button>
+        </div>
+        <div id="lock-status" style="margin-top:8px;font-size:13px;color:${donneesGlobales.verrouille ? 'var(--ok-text)' : 'var(--muted)'};">
+          ${donneesGlobales.verrouille ? '✅ Planning figé — les formateurs ne peuvent plus se substituer sur les créneaux déjà couverts.' : 'Planning ouvert.'}
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-size:13px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;">📅 Marquer une période complète comme "Pas de session"</label>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+          <div>
+            <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block;">Du</label>
+            <input type="date" id="masseDebut" style="padding:8px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--muted);margin-bottom:4px;display:block;">Au</label>
+            <input type="date" id="masseFin" style="padding:8px;border:1px solid var(--line);border-radius:6px;font-family:'DM Sans',sans-serif;">
+          </div>
+          <button class="btn-masse" id="btn-masse" style="margin-top:18px;">Marquer "Pas de session"</button>
+        </div>
+        <div id="masse-status" style="margin-top:8px;font-size:13px;color:var(--muted);"></div>
       </div>
     </div>
     <div id="resultats"></div>
   `;
   document.getElementById('dateDebutAffichage').value = formatISO(new Date());
   document.getElementById('btn-actualiser').addEventListener('click', genererPlanning);
+
+  // Pré-remplir les dates de lock avec la période affichée
+  document.getElementById('lockDebut').value = formatISO(new Date());
+  const lockFinDate = new Date(); lockFinDate.setMonth(lockFinDate.getMonth()+3);
+  document.getElementById('lockFin').value = formatISO(lockFinDate);
+  document.getElementById('masseDebut').value = formatISO(new Date());
+  document.getElementById('masseFin').value = formatISO(lockFinDate);
+
   document.getElementById('btn-lock').addEventListener('click', async () => {
     const btn = document.getElementById('btn-lock');
     btn.disabled = true;
     try {
-      const res = await fetch('/api/update', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'toggle-lock'}) });
+      const res = await fetch('/api/update', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({action:'toggle-lock', periodeDebut: document.getElementById('lockDebut').value, periodeFin: document.getElementById('lockFin').value}) });
       const d = await res.json();
       donneesGlobales.verrouille = d.verrouille;
-      btn.textContent = d.verrouille ? '🔓 Dégeler le planning' : '🔒 Figer le planning';
+      donneesGlobales.lockDebut  = document.getElementById('lockDebut').value;
+      donneesGlobales.lockFin    = document.getElementById('lockFin').value;
+      btn.textContent = d.verrouille ? '🔓 Dégeler' : '🔒 Figer cette période';
       document.getElementById('lock-status').textContent = d.verrouille
-        ? '✅ Planning figé — les formateurs ne peuvent plus se substituer sur les créneaux déjà couverts.'
-        : 'Planning ouvert — les formateurs peuvent encore soumettre leurs disponibilités.';
+        ? `✅ Période ${document.getElementById('lockDebut').value} → ${document.getElementById('lockFin').value} figée.`
+        : 'Planning ouvert.';
       document.getElementById('lock-status').style.color = d.verrouille ? 'var(--ok-text)' : 'var(--muted)';
     } catch(e) { alert('Erreur : ' + e.message); }
     btn.disabled = false;
+  });
+
+  document.getElementById('btn-masse').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-masse');
+    const debut = new Date(document.getElementById('masseDebut').value + 'T00:00:00');
+    const fin   = new Date(document.getElementById('masseFin').value   + 'T00:00:00');
+    if (!debut || !fin || debut > fin) { alert('Sélectionnez une période valide.'); return; }
+    if (!confirm(`Marquer toute la période du ${document.getElementById('masseDebut').value} au ${document.getElementById('masseFin').value} comme "Pas de session" ? Cette action modifiera chaque créneau de la période.`)) return;
+
+    btn.disabled = true; btn.textContent = 'En cours…';
+    const status = document.getElementById('masse-status');
+    status.textContent = '';
+
+    const feries = [...joursFeriesFR(debut.getFullYear()), ...joursFeriesFR(debut.getFullYear()+1)];
+    const semaines = construireSemaines(debut, Math.ceil((fin - debut) / (1000*60*60*24*7) / 4) + 1);
+    const COLS = ['lundi','mardi','mercredi','regroupement'];
+    let compteur = 0, erreurs = 0;
+
+    for (const sem of semaines) {
+      for (const col of COLS) {
+        const info = col === 'regroupement' ? sem.marseille : sem[col];
+        if (!info) continue;
+        if (info.date < debut || info.date > fin) continue;
+        try {
+          await fetch('/api/update', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({action:'update-planning', lundiISO: sem.lundiISO, colonne: col, valeur:'PAS_DE_SESSION'}) });
+          if (!donneesGlobales.planningExistant[sem.lundiISO]) donneesGlobales.planningExistant[sem.lundiISO] = {};
+          donneesGlobales.planningExistant[sem.lundiISO][col] = 'PAS_DE_SESSION';
+          compteur++;
+        } catch { erreurs++; }
+      }
+    }
+
+    status.textContent = `${compteur} créneau(x) marqué(s) "Pas de session"${erreurs>0?` (${erreurs} erreur(s))`:''}.`;
+    status.style.color = erreurs > 0 ? 'var(--alert-text)' : 'var(--ok-text)';
+    btn.disabled = false; btn.textContent = 'Marquer "Pas de session"';
+    genererPlanning();
   });
 
   genererPlanning();
@@ -549,32 +667,33 @@ function ouvrirEdition(lundiISO, colonne, btnEl){
 }
 
 function mettreAJourCellule(lundiISO, colonne, valeur){
-  // Trouver le bouton ✏️ qui correspond à cette cellule et remonter au pill parent
   const btn = document.querySelector(`button.btn-edit[onclick*="${lundiISO}"][onclick*="${colonne}"]`);
-  if (!btn) return; // cellule pas visible dans la période affichée
+  if (!btn) return;
   const cellWrapper = btn.closest('.cell-editable');
   if (!cellWrapper) return;
 
+  // Récupérer la date effective depuis semainesData pour l'afficher dans la pastille
+  const semaine = semainesData.find(s => s.lundiISO === lundiISO);
+  const info = semaine ? (colonne === 'regroupement' ? semaine.marseille : semaine[colonne]) : null;
+  const dateLabel = info ? `<span class="date">${formatDateCourt(info.date)}</span>` : '';
+
   let pillHTML = '';
   if (valeur === 'NON_COUVERT' || valeur === '') {
-    pillHTML = `<div class="pill alert"><strong>⚠ Non couvert</strong></div>`;
+    pillHTML = `<div class="pill alert"><strong>⚠ Non couvert</strong>${dateLabel}</div>`;
   } else if (valeur === 'PAS_DE_SESSION') {
-    pillHTML = `<div class="pill pas-session"><strong>📅 Pas de session</strong></div>`;
+    pillHTML = `<div class="pill pas-session"><strong>📅 Pas de session</strong>${dateLabel}</div>`;
   } else if (valeur === 'FÉRIÉ') {
-    pillHTML = `<div class="pill shift"><strong>FÉRIÉ</strong></div>`;
+    pillHTML = `<div class="pill shift"><strong>FÉRIÉ</strong>${dateLabel}</div>`;
   } else {
     const couleurs = couleursFormateurs[valeur] || {};
     const style = couleurs.bg ? `style="background:${couleurs.bg};border-color:${couleurs.border};color:${couleurs.text};"` : '';
-    pillHTML = `<div class="pill ok" ${style}><strong>${valeur}</strong></div>`;
+    const pres = info && info.presentiel ? '<span class="note">📍 Présentiel Marseille · 7h</span>' : '';
+    pillHTML = `<div class="pill ok" ${style}><strong>${valeur}</strong>${dateLabel}${pres}</div>`;
   }
 
-  // Remplacer le contenu sans toucher au bouton ✏️
   const ancienPill = cellWrapper.querySelector('.pill');
-  if (ancienPill) {
-    ancienPill.outerHTML = pillHTML;
-  } else {
-    cellWrapper.insertAdjacentHTML('afterbegin', pillHTML);
-  }
+  if (ancienPill) { ancienPill.outerHTML = pillHTML; }
+  else { cellWrapper.insertAdjacentHTML('afterbegin', pillHTML); }
 }
 
 function fermerEdition(){
@@ -583,7 +702,7 @@ function fermerEdition(){
   editEnCours = null;
 }
 
-init();
+// init() est déclenché uniquement après vérification du mot de passe
 </script>
 
 </body>
