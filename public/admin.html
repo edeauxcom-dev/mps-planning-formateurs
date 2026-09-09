@@ -473,7 +473,10 @@ function genererPlanning(){
       }
 
       resultat[slot.cle] = choisi || '';
-      if (!choisi) trousCount++;
+      if (!choisi && valManuelle === 'NON_COUVERT') trousCount++;
+      else if (!choisi && valManuelle === '') {} // case vide = calcul auto, pas un trou
+      else if (!choisi) trousCount++;
+    
 
       if (info.decalee){
         const dateNominale = formatDateCourt(info.nominal);
