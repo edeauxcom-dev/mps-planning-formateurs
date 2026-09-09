@@ -183,8 +183,10 @@ function construireSemaines(dateDebutChoisie, nbMois){
 
   const journeesMarseille = [];
   let curseur = new Date(debut.getFullYear(), debut.getMonth(), 1);
-  while (curseur < fin){ journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries)); curseur.setMonth(curseur.getMonth()+1); }
-
+while (curseur < fin){
+  if (new Date(curseur) < new Date(2026, 9, 1)) journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries));
+  curseur.setMonth(curseur.getMonth()+1);
+}
   const semaines = [];
   let lundi = new Date(debut);
   while (lundi < fin){
@@ -193,10 +195,10 @@ function construireSemaines(dateDebutChoisie, nbMois){
     semaines.push({
       lundiISO: formatISO(lundi),
       label: `S${semaines.length+1}<br><small>${formatDateCourt(lundi)}–${formatDateCourt(addDays(lundi,6))}</small>`,
-      lundi: dateEffectiveCalc(new Date(lundi), feries),
-      mardi: dateEffectiveCalc(addDays(lundi,1), feries),
-      mercredi: dateEffectiveCalc(addDays(lundi,2), feries),
-      marseille
+           lundi: { ...dateEffectiveCalc(new Date(lundi), feries), type: new Date(lundi) >= new Date(2026,9,1) && addDays(new Date(lundi),7).getMonth()!==new Date(lundi).getMonth() ? 'NTC_PRESENTIEL' : 'NTC', heures: new Date(lundi) >= new Date(2026,9,1) && addDays(new Date(lundi),7).getMonth()!==new Date(lundi).getMonth() ? 7 : 3.5 },
+      mardi: { ...dateEffectiveCalc(addDays(lundi,1), feries), type: addDays(lundi,1) >= new Date(2026,9,1) && addDays(lundi,8).getMonth()!==addDays(lundi,1).getMonth() ? 'CC/CV_PRESENTIEL' : 'CC/CV', heures: addDays(lundi,1) >= new Date(2026,9,1) && addDays(lundi,8).getMonth()!==addDays(lundi,1).getMonth() ? 7 : 3.5 },
+      mercredi: { ...dateEffectiveCalc(addDays(lundi,2), feries), type: addDays(lundi,2) >= new Date(2026,9,1) && addDays(lundi,9).getMonth()!==addDays(lundi,2).getMonth() ? 'MEM_PRESENTIEL' : 'MEM', heures: addDays(lundi,2) >= new Date(2026,9,1) && addDays(lundi,9).getMonth()!==addDays(lundi,2).getMonth() ? 7 : 3.5 },
+      marseille: new Date(lundi) < new Date(2026,9,1) ? (journeesMarseille.find(jm => jm.date >= lundi && jm.date <= dimanche) || null) : null
     });
     lundi = addDays(lundi, 7);
   }
