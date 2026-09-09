@@ -93,6 +93,18 @@
   .btn-edit{ position:absolute; top:4px; right:4px; background:transparent; border:none; cursor:pointer; font-size:13px; opacity:0.35; padding:2px; border-radius:4px; }
   .btn-edit:hover{ opacity:1; background:var(--line); }
   .pill.pas-session{ background:#F0F0F0; border:1px solid #BBBBBB; color:#666666; }
+  .btn-candidats{ background:transparent; border:none; cursor:pointer; font-size:11px; color:var(--mps-blue); font-family:'DM Sans',sans-serif; padding:2px 0; text-decoration:underline; display:block; margin-top:3px; }
+  .btn-candidats:hover{ color:var(--mps-blue-dark); }
+  .candidats-popup{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; box-shadow:0 4px 24px rgba(0,0,0,.15); z-index:1001; min-width:320px; max-width:440px; }
+  .candidats-popup h3{ margin:0 0 6px; font-size:15px; color:var(--mps-blue-dark); }
+  .candidats-popup p.sub{ margin:0 0 14px; font-size:12px; color:var(--muted); }
+  .candidat-item{ display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-radius:6px; margin-bottom:6px; border:1.5px solid var(--line); cursor:pointer; transition:all .15s; }
+  .candidat-item:hover{ border-color:var(--mps-blue); background:var(--ok-bg); }
+  .candidat-item.actuel{ border-color:var(--ok-border); background:var(--ok-bg); }
+  .candidat-item .nom{ font-weight:700; font-size:13.5px; }
+  .candidat-item .heures{ font-size:12px; color:var(--muted); }
+  .candidat-item .badge-h{ background:var(--mps-blue-dark); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px; }
+  .candidat-item.actuel .badge-h{ background:var(--ok-border); }
   .edit-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.2); z-index:999; }
   .edit-popup{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:10px; padding:24px; box-shadow:0 4px 24px rgba(0,0,0,0.15); z-index:1000; min-width:300px; }
   .edit-popup h3{ margin:0 0 14px; font-size:16px; color:var(--mps-blue-dark); }
@@ -427,6 +439,7 @@ function genererPlanning(){
 
   let trousCount = 0;
   const trousDetail = [];
+  candidatsParSlot = {}; // réinitialiser à chaque génération
   const lignesHTML = [];
   const aEnregistrer = [];
 
@@ -494,7 +507,10 @@ function genererPlanning(){
         }
         resultat[slot.cle] = 'FÉRIÉ';
       } else if (choisi){
-        cellulesHTML[slot.cle] = `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span>${niveau==='fallback'?'<span class="note">Filet de sécurité — aucun indépendant disponible</span>':''}</div>`;
+        const keySlot = semaine.lundiISO+'_'+slot.cle;
+        const nbAutres = candidatsParSlot[keySlot] ? candidatsParSlot[keySlot].candidats.length - 1 : 0;
+        const btnAutres = nbAutres > 0 ? `<button class="btn-candidats" onclick="ouvrirCandidats('${semaine.lundiISO}','${slot.cle}',this)">👥 ${nbAutres} autre${nbAutres>1?'s':''} dispo${nbAutres>1?'s':''}</button>` : '';
+        cellulesHTML[slot.cle] = `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span>${niveau==='fallback'?'<span class="note">Filet de sécurité</span>':''}${btnAutres}</div>`;
       } else {
         cellulesHTML[slot.cle] = `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
       }
@@ -706,6 +722,57 @@ function mettreAJourCellule(lundiISO, colonne, valeur){
   const ancienPill = cellWrapper.querySelector('.pill');
   if (ancienPill) { ancienPill.outerHTML = pillHTML; }
   else { cellWrapper.insertAdjacentHTML('afterbegin', pillHTML); }
+}
+
+// ─── Vue candidats pour arbitrage ─────────────────────────────────────────────
+let candidatsParSlot = {}; // rempli pendant genererPlanning
+
+function ouvrirCandidats(lundiISO, colonne, btnEl){
+  const data = candidatsParSlot[lundiISO+'_'+colonne];
+  if (!data) return;
+  // Fermer un popup existant
+  document.querySelectorAll('.candidats-popup,.edit-overlay').forEach(el => {
+    if (el.classList.contains('candidats-popup')) el.remove();
+  });
+
+  const labels = {lundi:'Lundi (NTC)', mardi:'Mardi (CC/CV)', mercredi:'Mercredi (MEM)', vendredi:'Vendredi', regroupement:'Regroupement Marseille'};
+  const sorted = [...data.candidats].sort((a,b)=>a.heures-b.heures);
+  const popup = document.createElement('div');
+  popup.className = 'candidats-popup';
+  popup.innerHTML = `
+    <h3>Arbitrage — ${labels[colonne]||colonne}</h3>
+    <p class="sub">📅 ${data.date} · Classés par heures cumulées sur la période (↑ moins d'heures = priorité rotation)</p>
+    ${sorted.map(c => `
+      <div class="candidat-item${c.nom===data.choisi?' actuel':''}" onclick="choisirCandidat('${lundiISO}','${colonne}','${c.nom}',this.closest('.candidats-popup'))">
+        <div>
+          <div class="nom">${c.nom}${c.nom===data.choisi?' <span style="font-size:10px;color:var(--ok-text);">✓ proposé</span>':''}</div>
+          <div class="heures">Tier ${c.tier===1?'indépendant':'filet'}</div>
+        </div>
+        <span class="badge-h">${c.heures}h</span>
+      </div>`).join('')}
+    <button class="btn-secondary" style="width:100%;margin-top:8px;" onclick="this.closest('.candidats-popup').remove()">Fermer</button>
+  `;
+  document.body.appendChild(popup);
+}
+
+async function choisirCandidat(lundiISO, colonne, nom, popupEl){
+  const btn = popupEl.querySelector('.btn-secondary');
+  btn.disabled = true; btn.textContent = 'Enregistrement…';
+  try {
+    const res = await fetch('/api/update', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({action:'update-planning', lundiISO, colonne, valeur: nom})
+    });
+    if (!res.ok) throw new Error((await res.json()).erreur || 'Erreur');
+    if (!donneesGlobales.planningExistant) donneesGlobales.planningExistant = {};
+    if (!donneesGlobales.planningExistant[lundiISO]) donneesGlobales.planningExistant[lundiISO] = {};
+    donneesGlobales.planningExistant[lundiISO][colonne] = nom;
+    popupEl.remove();
+    mettreAJourCellule(lundiISO, colonne, nom);
+  } catch(e) {
+    alert('Erreur : ' + e.message);
+    btn.disabled = false; btn.textContent = 'Fermer';
+  }
 }
 
 function fermerEdition(){
