@@ -458,12 +458,12 @@ function genererPlanning(){
         heuresTier1[choisi] += 3.5;
       } else {
         // ── Priorité 2 : calcul automatique par rotation ──
-        const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, slot.type);
+        const dispoNoms = trouverDisponibles(data.disponibilites, dateISO, slotType);
         const candidats1 = tier1.filter(f => dispoNoms.includes(normaliserNom(f.nom)) && f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
-        if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] += 3.5; niveau = 'ok'; }
+        if (candidats1.length){ choisi = choisirParRotation(candidats1, heuresTier1); heuresTier1[choisi] = (heuresTier1[choisi]||0) + slotHeures; niveau = 'ok'; }
         else {
           const candidats2 = tier2.filter(f => f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
-          if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] += 3.5; niveau = 'fallback'; }
+          if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] = (heuresTier2[choisi]||0) + slotHeures; niveau = 'fallback'; }
         }
       }
 
@@ -474,14 +474,14 @@ function genererPlanning(){
         const dateNominale = formatDateCourt(info.nominal);
         cellulesHTML[slot.cle] = `<div class="pill shift"><strong>FÉRIÉ</strong><span class="date">${dateNominale}</span><span class="note">décalé au vendredi</span></div>`;
         const pillVendredi = choisi
-          ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span><span class="note">Session ${slot.type} décalée (férié du ${dateNominale})</span></div>`
+          ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(info.date)}</span><span class="note">Session ${slotType} décalée (férié du ${dateNominale})</span></div>`
           : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(info.date)}</span></div>`;
         if (cellulesHTML.vendredi){
           cellulesHTML.vendredi += pillVendredi; // rare cas de deux jours fériés la même semaine — on n'écrase rien
-          resultat.vendredi = (resultat.vendredi || '') + (choisi ? ` + ${choisi} (${slot.type})` : '');
+          resultat.vendredi = (resultat.vendredi || '') + (choisi ? ` + ${choisi} (${slotType})` : '');
         } else {
           cellulesHTML.vendredi = pillVendredi;
-          resultat.vendredi = choisi ? `${choisi} (${slot.type})` : '';
+          resultat.vendredi = choisi ? `${choisi} (${slotType})` : '';
         }
         resultat[slot.cle] = 'FÉRIÉ';
       } else if (choisi){
