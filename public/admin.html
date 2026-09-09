@@ -433,6 +433,8 @@ function genererPlanning(){
     SLOTS.forEach(slot => {
       const info = semaine[slot.cle];
       const dateISO = formatISO(info.date);
+      const slotType = info.type || (slot.cle === 'lundi' ? 'NTC' : slot.cle === 'mardi' ? 'CC/CV' : 'MEM');
+const slotHeures = info.heures || 3.5;
 
       // ── Priorité 1 : valeur déjà enregistrée dans l'onglet Planning ──
       const planningLigne = data.planningExistant && data.planningExistant[semaine.lundiISO];
