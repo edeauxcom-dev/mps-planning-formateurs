@@ -426,6 +426,7 @@ function genererPlanning(){
   ];
 
   let trousCount = 0;
+  const trousDetail = [];
   const lignesHTML = [];
   const aEnregistrer = [];
 
@@ -445,9 +446,8 @@ function genererPlanning(){
 
       let choisi = null, niveau = null;
       if (valManuelle === 'NON_COUVERT') {
-        // Case vidée intentionnellement — trou à signaler
+        // Case vidée intentionnellement — trou à signaler (compté ligne suivante via !choisi)
         choisi = null; niveau = null;
-        trousCount++;
       } else if (valManuelle === 'PAS_DE_SESSION') {
         // Vacances / fermeture — ne compte pas comme un trou
         resultat[slot.cle] = 'PAS_DE_SESSION';
@@ -473,10 +473,11 @@ function genererPlanning(){
       }
 
       resultat[slot.cle] = choisi || '';
-      if (!choisi && valManuelle === 'NON_COUVERT') trousCount++;
-      else if (!choisi && valManuelle === '') {} // case vide = calcul auto, pas un trou
-      else if (!choisi) trousCount++;
-    
+      if (!choisi) {
+        trousCount++;
+        const labelCol = slot.cle==='lundi'?'NTC':slot.cle==='mardi'?'CC/CV':'MEM';
+        trousDetail.push(`${labelCol} du ${formatDateCourt(info.date)}${info.decalee?' (décalé)':''}`);
+      }
 
       if (info.decalee){
         const dateNominale = formatDateCourt(info.nominal);
@@ -506,7 +507,7 @@ function genererPlanning(){
       let choisi = null, niveau = null;
       if (valManuelleM === 'NON_COUVERT') {
         choisi = null; niveau = null;
-        trousCount++;
+        // compté ci-dessous via !choisi
       } else if (valManuelleM === 'PAS_DE_SESSION') {
         resultat.regroupement = 'PAS_DE_SESSION';
         cellulesHTML.regroupement = `<div class="pill pas-session"><strong>📅 Pas de session</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
@@ -526,7 +527,10 @@ function genererPlanning(){
       // Ne recalculer l'affichage final que si PAS_DE_SESSION/NON_COUVERT n'ont pas déjà été traités
       if (valManuelleM !== 'PAS_DE_SESSION' && valManuelleM !== 'NON_COUVERT') {
         resultat.regroupement = choisi || '';
-        if (!choisi) trousCount++;
+        if (!choisi) {
+          trousCount++;
+          trousDetail.push(`Regroupement du ${formatDateCourt(semaine.marseille.date)}`);
+        }
         cellulesHTML.regroupement = choisi
           ? `<div class="pill ${niveau}" ${stylePersonne(choisi)}><strong>${choisi}</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span><span class="note">Journée présentiel Marseille · 7h</span></div>`
           : `<div class="pill alert"><strong>⚠ Non couvert</strong><span class="date">${formatDateCourt(semaine.marseille.date)}</span></div>`;
@@ -583,7 +587,7 @@ function genererPlanning(){
         <thead><tr><th>Semaine</th><th>Lundi<br><small>NTC</small></th><th>Mardi<br><small>CC/CV</small></th><th>Mercredi<br><small>MEM</small></th><th>Vendredi<br><small>décalage férié</small></th><th>Regroupement<br><small>dernier jeudi · Marseille</small></th></tr></thead>
         <tbody>${lignesHTML.join('')}</tbody>
       </table>
-      ${trousCount > 0 ? `<div class="alert-box"><strong>⚠ ${trousCount} créneau${trousCount>1?'x':''} non couvert${trousCount>1?'s':''} sur cette période</strong>Personne (ni indépendant, ni filet de sécurité) n'est disponible. Une alerte par e-mail est envoyée automatiquement dès que tous les formateurs actifs ont rempli leurs disponibilités et qu'un trou comme celui-ci subsiste.</div>` : ''}
+      ${trousCount > 0 ? `<div class="alert-box"><strong>⚠ ${trousCount} créneau${trousCount>1?'x':''} non couvert${trousCount>1?'s':''} sur cette période</strong><ul style="margin:8px 0 0;padding-left:18px;">${trousDetail.map(t=>`<li>${t}</li>`).join('')}</ul><p style="margin:8px 0 0;font-size:12.5px;">Une alerte par e-mail est envoyée automatiquement dès que tous les formateurs actifs ont rempli leurs disponibilités et qu'un trou comme celui-ci subsiste.</p></div>` : ''}
       <div class="actions">
         <button class="btn-primary" id="btn-enregistrer">Enregistrer ce planning dans le Sheet</button>
       </div>
