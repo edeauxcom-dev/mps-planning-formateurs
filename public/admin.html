@@ -183,10 +183,11 @@ function construireSemaines(dateDebutChoisie, nbMois){
 
   const journeesMarseille = [];
   let curseur = new Date(debut.getFullYear(), debut.getMonth(), 1);
-while (curseur < fin){
+  while (curseur < fin){
   if (new Date(curseur) < new Date(2026, 9, 1)) journeesMarseille.push(journeeMarseille(curseur.getFullYear(), curseur.getMonth(), feries));
   curseur.setMonth(curseur.getMonth()+1);
 }
+
   const semaines = [];
   let lundi = new Date(debut);
   while (lundi < fin){
@@ -195,10 +196,10 @@ while (curseur < fin){
     semaines.push({
       lundiISO: formatISO(lundi),
       label: `S${semaines.length+1}<br><small>${formatDateCourt(lundi)}–${formatDateCourt(addDays(lundi,6))}</small>`,
-           lundi: { ...dateEffectiveCalc(new Date(lundi), feries), type: new Date(lundi) >= new Date(2026,9,1) && addDays(new Date(lundi),7).getMonth()!==new Date(lundi).getMonth() ? 'NTC_PRESENTIEL' : 'NTC', heures: new Date(lundi) >= new Date(2026,9,1) && addDays(new Date(lundi),7).getMonth()!==new Date(lundi).getMonth() ? 7 : 3.5 },
-      mardi: { ...dateEffectiveCalc(addDays(lundi,1), feries), type: addDays(lundi,1) >= new Date(2026,9,1) && addDays(lundi,8).getMonth()!==addDays(lundi,1).getMonth() ? 'CC/CV_PRESENTIEL' : 'CC/CV', heures: addDays(lundi,1) >= new Date(2026,9,1) && addDays(lundi,8).getMonth()!==addDays(lundi,1).getMonth() ? 7 : 3.5 },
-      mercredi: { ...dateEffectiveCalc(addDays(lundi,2), feries), type: addDays(lundi,2) >= new Date(2026,9,1) && addDays(lundi,9).getMonth()!==addDays(lundi,2).getMonth() ? 'MEM_PRESENTIEL' : 'MEM', heures: addDays(lundi,2) >= new Date(2026,9,1) && addDays(lundi,9).getMonth()!==addDays(lundi,2).getMonth() ? 7 : 3.5 },
-      marseille: new Date(lundi) < new Date(2026,9,1) ? (journeesMarseille.find(jm => jm.date >= lundi && jm.date <= dimanche) || null) : null
+      lundi: (function(){ const d=dateEffectiveCalc(new Date(lundi),feries); const pres=d.date>=new Date(2026,9,1)&&addDays(d.date,7).getMonth()!==d.date.getMonth(); return{...d,type:pres?'NTC_PRESENTIEL':'NTC',heures:pres?7:3.5}; })(),
+      mardi: (function(){ const d=dateEffectiveCalc(addDays(lundi,1),feries); const pres=d.date>=new Date(2026,9,1)&&addDays(d.date,7).getMonth()!==d.date.getMonth(); return{...d,type:pres?'CC/CV_PRESENTIEL':'CC/CV',heures:pres?7:3.5}; })(),
+      mercredi: (function(){ const d=dateEffectiveCalc(addDays(lundi,2),feries); const pres=d.date>=new Date(2026,9,1)&&addDays(d.date,7).getMonth()!==d.date.getMonth(); return{...d,type:pres?'MEM_PRESENTIEL':'MEM',heures:pres?7:3.5}; })(),
+      marseille: new Date(lundi) < new Date(2026,9,1) ? (journeesMarseille.find(jm=>jm.date>=lundi&&jm.date<=addDays(lundi,6))||null) : null
     });
     lundi = addDays(lundi, 7);
   }
@@ -436,7 +437,7 @@ function genererPlanning(){
       const info = semaine[slot.cle];
       const dateISO = formatISO(info.date);
       const slotType = info.type || (slot.cle === 'lundi' ? 'NTC' : slot.cle === 'mardi' ? 'CC/CV' : 'MEM');
-const slotHeures = info.heures || 3.5;
+      const slotHeures = info.heures || 3.5;
 
       // ── Priorité 1 : valeur déjà enregistrée dans l'onglet Planning ──
       const planningLigne = data.planningExistant && data.planningExistant[semaine.lundiISO];
