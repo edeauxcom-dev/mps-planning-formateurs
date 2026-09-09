@@ -178,7 +178,7 @@ function journeeMarseille(year, monthIndex, feries){ return dateEffectiveCalc(de
 // Construit les semaines de la période choisie
 function construireSemaines(dateDebutChoisie, nbMois){
   const debut = lundiDeLaSemaine(dateDebutChoisie || new Date());
-  const fin = new Date(debut); fin.setMonth(fin.getMonth() + (nbMois || 3)); fin.setDate(fin.getDate() + 6);
+  const fin = new Date(debut); fin.setMonth(fin.getMonth() + (nbMois || 3)); fin.setDate(fin.getDate() + 1);
   const feries = [...joursFeriesFR(debut.getFullYear()), ...joursFeriesFR(debut.getFullYear()+1)];
 
   const journeesMarseille = [];
