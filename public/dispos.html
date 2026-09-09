@@ -234,13 +234,14 @@
   }
   .deja-couvert{
     display:inline-block;
-    background:#E2F0E8;
-    color:#2F7A52;
+    background:#EAF4F1;
+    color:#2A7F7F;
     font-size:10.5px;
     font-weight:700;
     padding:2px 7px;
     border-radius:10px;
     margin-top:4px;
+    border:1px dashed #2A7F7F;
   }
   .bandeau-verrouille{
     background:#EAF4F1;
@@ -572,7 +573,7 @@ function slotHTML(idx, key, info, lundiISO){
   const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key);
   const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
   const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
-  const badgeCouvert = couverte ? '<div class="deja-couvert">✓ Déjà couvert</div>' : '';
+  const badgeCouvert = couverte ? '<div class="deja-couvert">+ Cochez si vous êtes aussi dispo</div>' : '';
   return `<div class="slot${couverte ? ' slot-grise' : ''}">
     <input type="checkbox" data-week="${idx}" data-jour="${key}" ${desactivee ? 'disabled' : ''}>
     <div class="slot-date">${formatDateCourt(info.date)}${badgePres}${badgeFerie}${badgeCouvert}</div>
