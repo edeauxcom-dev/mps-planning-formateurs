@@ -59,6 +59,37 @@ export async function onRequestPost({ request, env }) {
       case 'update-planning':
         await modifierCellulePlanning(env, body.lundiISO, body.colonne, body.valeur ?? 'NON_COUVERT');
         return Response.json({ ok: true });
+      case 'delete-dispos': {
+        // Supprimer des lignes de dispos pour un formateur sur des date+type spécifiques
+        const { formateur, cles } = body; // cles = ["2026-10-05_NTC", ...]
+        if (!formateur || !Array.isArray(cles) || cles.length === 0)
+          return Response.json({ erreur: 'formateur et cles requis' }, { status: 400 });
+
+        const { sheetsGet, sheetsBatchUpdate, ONGLET_DISPONIBILITES } = await import('../../lib/sheets.js');
+        const rows = await sheetsGet(env, `'${ONGLET_DISPONIBILITES}'!A:H`);
+
+        // Trouver les indices des lignes à supprimer (1-based, sans l'en-tête)
+        const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+        const lignesASupprimer = [];
+        rows.forEach((r, i) => {
+          if (i === 0) return; // en-tête
+          const nomMatch = norm(r[1]) === norm(formateur);
+          const cle = (r[2]||'') + '_' + (r[4]||'');
+          if (nomMatch && cles.includes(cle)) lignesASupprimer.push(i + 1); // +1 car 1-based
+        });
+
+        if (lignesASupprimer.length === 0)
+          return Response.json({ ok: true, supprimees: 0 });
+
+        // Vider les cellules des lignes à supprimer (on ne peut pas supprimer des lignes via batchUpdate)
+        // On les vide entièrement - elles seront ignorées car filtre r[1] (formateur vide)
+        const updates = lignesASupprimer.flatMap(idx => [
+          { range: `'${ONGLET_DISPONIBILITES}'!A${idx}:H${idx}`, values: [['','','','','','','','']] }
+        ]);
+        await sheetsBatchUpdate(env, updates);
+        return Response.json({ ok: true, supprimees: lignesASupprimer.length });
+      }
+
       default:
         return Response.json({ erreur: `Action inconnue : ${body.action}` }, { status: 400 });
     }
