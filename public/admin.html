@@ -93,6 +93,8 @@
   .btn-edit{ position:absolute; top:4px; right:4px; background:transparent; border:none; cursor:pointer; font-size:13px; opacity:0.35; padding:2px; border-radius:4px; }
   .btn-edit:hover{ opacity:1; background:var(--line); }
   .pill.pas-session{ background:#F0F0F0; border:1px solid #BBBBBB; color:#666666; }
+  .cell-presentiel{ background:#FFF9EC !important; border-left:3px solid var(--shift-border) !important; }
+  .badge-pres-admin{ display:inline-block; background:var(--shift-border); color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:8px; margin-top:2px; }
   .btn-candidats{ background:transparent; border:none; cursor:pointer; font-size:11px; color:var(--mps-blue); font-family:'DM Sans',sans-serif; padding:2px 0; text-decoration:underline; display:block; margin-top:3px; }
   .btn-candidats:hover{ color:var(--mps-blue-dark); }
   .candidats-popup{ position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border:1px solid var(--line); border-radius:10px; padding:20px; box-shadow:0 4px 24px rgba(0,0,0,.15); z-index:1001; min-width:320px; max-width:440px; }
@@ -571,8 +573,10 @@ function genererPlanning(){
       .map(f => `<option value="${f.nom}">${f.nom}</option>`)
       .join('');
 
-    function celluleEditable(cellHTML, lundiISO, colonne){
-      return `<div class="cell-editable">
+    function celluleEditable(cellHTML, lundiISO, colonne, isPresentiel){
+      const presClass = isPresentiel ? ' cell-presentiel' : '';
+      return `<div class="cell-editable${presClass}">
+        ${isPresentiel ? '<span class="badge-pres-admin">📍 Présentiel · 7h</span>' : ''}
         ${cellHTML}
         <button class="btn-edit" onclick="ouvrirEdition('${lundiISO}','${colonne}',this)" title="Modifier">✏️</button>
       </div>`;
