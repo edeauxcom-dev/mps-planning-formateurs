@@ -173,6 +173,8 @@
     position:sticky;
     top:0;
     overflow:hidden;
+    z-index:2;
+    clip-path:inset(0 0 0 0);
   }
   thead th small{
     display:block;
@@ -227,18 +229,21 @@
   .slot-grise{
     opacity:0.55;
   }
- .slot-grise input[type="checkbox"]:disabled{
+  .slot-grise input[type="checkbox"]:disabled{
   cursor:not-allowed;
 }
+  .slot-precoche input[type="checkbox"]:checked{ accent-color: var(--teal); }
+  .slot-precoche{ border-left:2px solid var(--teal-dark); background:#F0F8F7; }
   .deja-couvert{
     display:inline-block;
-    background:#E2F0E8;
-    color:#2F7A52;
+    background:#EAF4F1;
+    color:#2A7F7F;
     font-size:10.5px;
     font-weight:700;
     padding:2px 7px;
     border-radius:10px;
     margin-top:4px;
+    border:1px dashed #2A7F7F;
   }
   .bandeau-verrouille{
     background:#EAF4F1;
@@ -506,6 +511,7 @@ function estDernierDuMois(date){ return addDays(date, 7).getMonth() !== date.get
 let semainesData = [];
 let planningActuel = {};
 let planningVerrouille = false;
+let disposPreExistantes = {}; // "dateISO_type" → true, pour les cases déjà soumises
 
 function typeCreneauPourJour(date, jourHabituel){
   const map = {lundi:'NTC', mardi:'CC/CV', mercredi:'MEM'};
@@ -523,8 +529,40 @@ function dejaCouverte(lundiISO, colonne){
 }
 
 // Case désactivée uniquement si planning figé ET déjà couverte
+function estPasDeSession(lundiISO, colonne){
+  const col = colonne === 'marseille' ? 'regroupement' : colonne;
+  const ligne = planningActuel[lundiISO];
+  return ligne && (ligne[col]||'').trim() === 'PAS_DE_SESSION';
+}
+
 function caseDesactivee(lundiISO, colonne){
   return planningVerrouille && dejaCouverte(lundiISO, colonne);
+}
+
+
+// Post-traitement : recalculer les vrais présentiels en ignorant les semaines PAS_DE_SESSION
+function recalculerPresentiels(semaines, planActuel) {
+  const bloquee = lundiISO => {
+    const l = planActuel && planActuel[lundiISO];
+    return l && ['lundi','mardi','mercredi'].every(c => (l[c]||'').trim() === 'PAS_DE_SESSION');
+  };
+  ['lundi','mardi','mercredi'].forEach(jourCle => {
+    const typeBase = jourCle==='lundi'?'NTC':jourCle==='mardi'?'CC/CV':'MEM';
+    const parMois = {};
+    semaines.forEach(sem => {
+      const d = sem[jourCle] && sem[jourCle].date;
+      if (!d || d < new Date(2026,9,1)) return;
+      const k = d.getFullYear()+'-'+d.getMonth();
+      (parMois[k]=parMois[k]||[]).push(sem);
+    });
+    Object.values(parMois).forEach(grp => {
+      const tri = [...grp].sort((a,b)=>b[jourCle].date-a[jourCle].date);
+      grp.forEach(s=>{s[jourCle].presentiel=false;s[jourCle].type=typeBase;s[jourCle].heures=3.5;});
+      const dernier = tri.find(s=>!bloquee(s.lundiISO));
+      if (dernier){dernier[jourCle].presentiel=true;dernier[jourCle].type=typeBase+'_PRESENTIEL';dernier[jourCle].heures=7;}
+    });
+  });
+  return semaines;
 }
 
 function genererCalendrier(){
@@ -560,6 +598,7 @@ function genererCalendrier(){
     lundi = addDays(lundi, 7);
   }
 
+  recalculerPresentiels(semainesData, planningActuel);
   renderCalendrier();
   document.getElementById('calendrierCard').style.display = 'block';
   document.getElementById('calendrierCard').scrollIntoView({behavior:'smooth'});
@@ -567,12 +606,18 @@ function genererCalendrier(){
 
 function slotHTML(idx, key, info, lundiISO){
   const couverte = dejaCouverte(lundiISO, key === 'marseille' ? 'regroupement' : key);
-  const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key);
+  const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key) || pasSession;
   const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
   const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
-  const badgeCouvert = couverte ? '<div class="deja-couvert">✓ Déjà couvert</div>' : '';
-  return `<div class="slot${couverte ? ' slot-grise' : ''}">
-    <input type="checkbox" data-week="${idx}" data-jour="${key}" ${desactivee ? 'disabled' : ''}>
+  const pasSession = estPasDeSession(lundiISO, key);
+  const badgeCouvert = pasSession
+    ? '<div class="deja-couvert" style="background:#F0F0F0;color:#888;border-color:#ccc;">🚫 Pas de session ce jour</div>'
+    : couverte ? '<div class="deja-couvert">+ Cochez si vous êtes aussi dispo</div>' : '';
+  // Pré-cocher si ce formateur a déjà soumis une dispo pour cette date+type
+  const cleSlot = formatISO(info.date) + '_' + (info.type || (key === 'marseille' ? 'MARSEILLE' : key === 'lundi' ? 'NTC' : key === 'mardi' ? 'CC/CV' : 'MEM'));
+  const precocheé = disposPreExistantes[cleSlot] || false;
+  return `<div class="slot${(couverte||pasSession) ? ' slot-grise' : ''}${precocheé ? ' slot-precoche' : ''}">
+    <input type="checkbox" data-week="${idx}" data-jour="${key}" ${desactivee ? 'disabled' : ''} ${precocheé ? 'checked' : ''}>
     <div class="slot-date">${formatDateCourt(info.date)}${badgePres}${badgeFerie}${badgeCouvert}</div>
   </div>`;
 }
@@ -673,6 +718,30 @@ async function validerDispos(){
   if (boutonValider){ boutonValider.disabled = true; boutonValider.textContent = "Envoi en cours..."; }
 
   try {
+  // Diff : cases cochées maintenant vs dispos pré-existantes
+    const clesCochees = new Set(dataEnvoi.map(d => d.dateEffective + '_' + d.type));
+    const clesPreexistantes = new Set(Object.keys(disposPreExistantes));
+
+    // Cases à supprimer : étaient cochées avant, ne le sont plus
+    const clesASupprimer = [...clesPreexistantes].filter(cle => !clesCochees.has(cle));
+    // Cases à ajouter : nouvellement cochées uniquement
+    const dataEnvoiNouveau = dataEnvoi.filter(d => !disposPreExistantes[d.dateEffective + '_' + d.type]);
+
+    // Supprimer d'abord les cases décochées
+    if (clesASupprimer.length > 0) {
+      await fetch('/api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete-dispos', formateur: nom, cles: clesASupprimer })
+      });
+    }
+
+    // N'envoyer que les nouvelles cases
+    if (dataEnvoiNouveau.length === 0) {
+      // Rien de nouveau à soumettre, on a juste supprimé
+      return; // ira dans le bloc après le try
+    }
+
     const reponse = await fetch('/api/submit-dispo', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -680,7 +749,7 @@ async function validerDispos(){
         formateur: nom,
         horizonMois: parseInt(document.getElementById('horizonMois').value),
         periodeDebut: formatISO(semainesData[0].lundi.date),
-        disponibilites: dataEnvoi
+        disponibilites: dataEnvoiNouveau
       })
     });
     if (!reponse.ok){
@@ -729,6 +798,19 @@ async function validerDispos(){
     if (independants.length === 0){
       select.innerHTML = '<option value="" disabled selected>Aucun formateur trouvé — contactez l\'administration</option>';
     }
+
+    // Quand le formateur change, charger ses dispos et pré-cocher les cases
+    select.addEventListener('change', () => {
+      const nomChoisi = select.value;
+      const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      disposPreExistantes = {};
+      (data.disponibilites || []).forEach(d => {
+        if (norm(d.formateur) === norm(nomChoisi)) {
+          disposPreExistantes[d.dateEffective + '_' + d.type] = true;
+        }
+      });
+      if (semainesData.length > 0) renderCalendrier();
+    });
 
     // Si le planning est figé et tous les créneaux des 3 prochains mois couverts,
     // décaler automatiquement le formulaire sur la période suivante (mois 4-6)
