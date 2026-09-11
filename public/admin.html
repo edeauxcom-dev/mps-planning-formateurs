@@ -420,12 +420,38 @@ async function init(){
   genererPlanning();
 }
 
+
+// Post-traitement : recalculer les vrais présentiels en ignorant les semaines PAS_DE_SESSION
+function recalculerPresentiels(semaines, planActuel) {
+  const bloquee = lundiISO => {
+    const l = planActuel && planActuel[lundiISO];
+    return l && ['lundi','mardi','mercredi'].every(c => (l[c]||'').trim() === 'PAS_DE_SESSION');
+  };
+  ['lundi','mardi','mercredi'].forEach(jourCle => {
+    const typeBase = jourCle==='lundi'?'NTC':jourCle==='mardi'?'CC/CV':'MEM';
+    const parMois = {};
+    semaines.forEach(sem => {
+      const d = sem[jourCle] && sem[jourCle].date;
+      if (!d || d < new Date(2026,9,1)) return;
+      const k = d.getFullYear()+'-'+d.getMonth();
+      (parMois[k]=parMois[k]||[]).push(sem);
+    });
+    Object.values(parMois).forEach(grp => {
+      const tri = [...grp].sort((a,b)=>b[jourCle].date-a[jourCle].date);
+      grp.forEach(s=>{s[jourCle].presentiel=false;s[jourCle].type=typeBase;s[jourCle].heures=3.5;});
+      const dernier = tri.find(s=>!bloquee(s.lundiISO));
+      if (dernier){dernier[jourCle].presentiel=true;dernier[jourCle].type=typeBase+'_PRESENTIEL';dernier[jourCle].heures=7;}
+    });
+  });
+  return semaines;
+}
+
 function genererPlanning(){
   const data = donneesGlobales;
   const inputDate = document.getElementById('dateDebutAffichage').value;
   const debutChoisi = inputDate ? new Date(inputDate + "T00:00:00") : new Date();
   const nbMois = parseInt(document.getElementById('dureeAffichage').value);
-  const semaines = construireSemaines(debutChoisi, nbMois);
+  const semaines = recalculerPresentiels(construireSemaines(debutChoisi, nbMois), donneesGlobales.planningExistant);
   semainesData = semaines; // exposé globalement pour mettreAJourCellule
   document.getElementById('periode-label').textContent =
     `${formatDateCourt(semaines[0].lundi.date)} au ${formatDateCourt(addDays(new Date(semaines[semaines.length-1].lundiISO), 6))} — généré automatiquement à partir des disponibilités`;
