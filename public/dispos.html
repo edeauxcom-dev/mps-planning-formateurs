@@ -607,10 +607,10 @@ function genererCalendrier(){
 
 function slotHTML(idx, key, info, lundiISO){
   const couverte = dejaCouverte(lundiISO, key === 'marseille' ? 'regroupement' : key);
+  const pasSession = estPasDeSession(lundiISO, key);
   const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key) || pasSession;
   const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
   const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
-  const pasSession = estPasDeSession(lundiISO, key);
   const badgeCouvert = pasSession
     ? '<div class="deja-couvert" style="background:#F0F0F0;color:#888;border-color:#ccc;">🚫 Pas de session ce jour</div>'
     : couverte ? '<div class="deja-couvert">+ Cochez si vous êtes aussi dispo</div>' : '';
