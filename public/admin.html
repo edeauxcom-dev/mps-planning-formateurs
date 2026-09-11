@@ -424,6 +424,7 @@ function genererPlanning(){
   const debutChoisi = inputDate ? new Date(inputDate + "T00:00:00") : new Date();
   const nbMois = parseInt(document.getElementById('dureeAffichage').value);
   const semaines = construireSemaines(debutChoisi, nbMois);
+  semainesData = semaines; // exposé globalement pour mettreAJourCellule
   document.getElementById('periode-label').textContent =
     `${formatDateCourt(semaines[0].lundi.date)} au ${formatDateCourt(addDays(new Date(semaines[semaines.length-1].lundiISO), 6))} — généré automatiquement à partir des disponibilités`;
 
@@ -732,6 +733,7 @@ function mettreAJourCellule(lundiISO, colonne, valeur){
 
 // ─── Vue candidats pour arbitrage ─────────────────────────────────────────────
 let candidatsParSlot = {}; // rempli pendant genererPlanning
+let semainesData = []; // rempli pendant genererPlanning
 
 function ouvrirCandidats(lundiISO, colonne, btnEl){
   const data = candidatsParSlot[lundiISO+'_'+colonne];
