@@ -584,9 +584,9 @@ function genererPlanning(){
 
     lignesHTML.push(`<tr>
       <td class="week-label">${semaine.label}</td>
-      <td>${celluleEditable(cellulesHTML.lundi, semaine.lundiISO, 'lundi')}</td>
-      <td>${celluleEditable(cellulesHTML.mardi, semaine.lundiISO, 'mardi')}</td>
-      <td>${celluleEditable(cellulesHTML.mercredi, semaine.lundiISO, 'mercredi')}</td>
+      <td>${celluleEditable(cellulesHTML.lundi, semaine.lundiISO, 'lundi', semaine.lundi&&semaine.lundi.presentiel)}</td>
+      <td>${celluleEditable(cellulesHTML.mardi, semaine.lundiISO, 'mardi', semaine.mardi&&semaine.mardi.presentiel)}</td>
+      <td>${celluleEditable(cellulesHTML.mercredi, semaine.lundiISO, 'mercredi', semaine.mercredi&&semaine.mercredi.presentiel)}</td>
       <td>${cellulesHTML.vendredi !== '<span class="empty-cell">—</span>' ? celluleEditable(cellulesHTML.vendredi, semaine.lundiISO, 'vendredi') : cellulesHTML.vendredi}</td>
       <td>${cellulesHTML.regroupement !== '<span class="empty-cell">—</span>' ? celluleEditable(cellulesHTML.regroupement, semaine.lundiISO, 'regroupement') : cellulesHTML.regroupement}</td>
     </tr>`);

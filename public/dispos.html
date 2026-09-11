@@ -763,6 +763,19 @@ async function validerDispos(){
       select.innerHTML = '<option value="" disabled selected>Aucun formateur trouvé — contactez l\'administration</option>';
     }
 
+    // Quand le formateur change, charger ses dispos et pré-cocher les cases
+    select.addEventListener('change', () => {
+      const nomChoisi = select.value;
+      const norm = s => (s||'').trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      disposPreExistantes = {};
+      (data.disponibilites || []).forEach(d => {
+        if (norm(d.formateur) === norm(nomChoisi)) {
+          disposPreExistantes[d.dateEffective + '_' + d.type] = true;
+        }
+      });
+      if (semainesData.length > 0) renderCalendrier();
+    });
+
     // Si le planning est figé et tous les créneaux des 3 prochains mois couverts,
     // décaler automatiquement le formulaire sur la période suivante (mois 4-6)
     if (planningVerrouille){
