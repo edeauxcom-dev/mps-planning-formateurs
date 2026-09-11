@@ -482,6 +482,11 @@ function genererPlanning(){
         else {
           const candidats2 = tier2.filter(f => f[slot.eligible] && estActif(f, info.date)).map(f => f.nom);
           if (candidats2.length){ choisi = choisirParRotation(candidats2, heuresTier2); heuresTier2[choisi] += 3.5; niveau = 'fallback'; }
+                  const tousCandidats = [
+          ...tier1.filter(f => dispoNoms.includes(normaliserNom(f.nom)) && f[slot.eligible] && estActif(f, info.date)).map(f => ({nom:f.nom, heures:(heuresTier1[f.nom]||0)+(heuresTier2[f.nom]||0), tier:1})),
+          ...tier2.filter(f => f[slot.eligible] && estActif(f, info.date)).map(f => ({nom:f.nom, heures:(heuresTier1[f.nom]||0)+(heuresTier2[f.nom]||0), tier:2}))
+        ];
+        if (tousCandidats.length > 1) candidatsParSlot[semaine.lundiISO+'_'+slot.cle] = {candidats: tousCandidats, choisi, date: formatDateCourt(info.date), label: slotType};
         }
       }
 
