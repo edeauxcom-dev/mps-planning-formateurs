@@ -529,6 +529,12 @@ function dejaCouverte(lundiISO, colonne){
 }
 
 // Case désactivée uniquement si planning figé ET déjà couverte
+function estPasDeSession(lundiISO, colonne){
+  const col = colonne === 'marseille' ? 'regroupement' : colonne;
+  const ligne = planningActuel[lundiISO];
+  return ligne && (ligne[col]||'').trim() === 'PAS_DE_SESSION';
+}
+
 function caseDesactivee(lundiISO, colonne){
   return planningVerrouille && dejaCouverte(lundiISO, colonne);
 }
@@ -601,14 +607,17 @@ function genererCalendrier(){
 
 function slotHTML(idx, key, info, lundiISO){
   const couverte = dejaCouverte(lundiISO, key === 'marseille' ? 'regroupement' : key);
-  const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key);
+  const desactivee = caseDesactivee(lundiISO, key === 'marseille' ? 'regroupement' : key) || pasSession;
   const badgePres = info.presentiel ? '<div class="badge-presentiel">📍 Présentiel Marseille · 7h</div>' : '';
   const badgeFerie = info.decalee ? '<div class="shifted">Décalé (jour férié)</div>' : (info.decalee === true ? '<div class="shifted">Décalée (jour férié)</div>' : '');
-  const badgeCouvert = couverte ? '<div class="deja-couvert">+ Cochez si vous êtes aussi dispo</div>' : '';
+  const pasSession = estPasDeSession(lundiISO, key);
+  const badgeCouvert = pasSession
+    ? '<div class="deja-couvert" style="background:#F0F0F0;color:#888;border-color:#ccc;">🚫 Pas de session ce jour</div>'
+    : couverte ? '<div class="deja-couvert">+ Cochez si vous êtes aussi dispo</div>' : '';
   // Pré-cocher si ce formateur a déjà soumis une dispo pour cette date+type
   const cleSlot = formatISO(info.date) + '_' + (info.type || (key === 'marseille' ? 'MARSEILLE' : key === 'lundi' ? 'NTC' : key === 'mardi' ? 'CC/CV' : 'MEM'));
   const precocheé = disposPreExistantes[cleSlot] || false;
-  return `<div class="slot${couverte ? ' slot-grise' : ''}${precocheé ? ' slot-precoche' : ''}">
+  return `<div class="slot${(couverte||pasSession) ? ' slot-grise' : ''}${precocheé ? ' slot-precoche' : ''}">
     <input type="checkbox" data-week="${idx}" data-jour="${key}" ${desactivee ? 'disabled' : ''} ${precocheé ? 'checked' : ''}>
     <div class="slot-date">${formatDateCourt(info.date)}${badgePres}${badgeFerie}${badgeCouvert}</div>
   </div>`;
