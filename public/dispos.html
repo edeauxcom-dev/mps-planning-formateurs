@@ -536,9 +536,10 @@ function caseDesactivee(lundiISO, colonne){
 
 // Post-traitement : recalculer les vrais présentiels en ignorant les semaines PAS_DE_SESSION
 function recalculerPresentiels(semaines, planActuel) {
-  const bloquee = lundiISO => {
+
+  const bloquee = (lundiISO, jourCle) => {
     const l = planActuel && planActuel[lundiISO];
-    return l && ['lundi','mardi','mercredi'].every(c => (l[c]||'').trim() === 'PAS_DE_SESSION');
+    return l && (l[jourCle]||'').trim() === 'PAS_DE_SESSION';
   };
   ['lundi','mardi','mercredi'].forEach(jourCle => {
     const typeBase = jourCle==='lundi'?'NTC':jourCle==='mardi'?'CC/CV':'MEM';
@@ -552,7 +553,7 @@ function recalculerPresentiels(semaines, planActuel) {
     Object.values(parMois).forEach(grp => {
       const tri = [...grp].sort((a,b)=>b[jourCle].date-a[jourCle].date);
       grp.forEach(s=>{s[jourCle].presentiel=false;s[jourCle].type=typeBase;s[jourCle].heures=3.5;});
-      const dernier = tri.find(s=>!bloquee(s.lundiISO));
+      const dernier = tri.find(s=>!bloquee(s.lundiISO, jourCle));
       if (dernier){dernier[jourCle].presentiel=true;dernier[jourCle].type=typeBase+'_PRESENTIEL';dernier[jourCle].heures=7;}
     });
   });

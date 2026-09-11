@@ -742,6 +742,10 @@ function mettreAJourCellule(lundiISO, colonne, valeur){
   const info = semaine ? (colonne === 'regroupement' ? semaine.marseille : semaine[colonne]) : null;
   const dateLabel = info ? `<span class="date">${formatDateCourt(info.date)}</span>` : '';
 
+  // Si on passe à PAS_DE_SESSION ou NON_COUVERT, recalculer les présentiels
+  // et forcer un refresh du planning pour repositionner correctement le badge présentiel
+  const doitRecalculer = (valeur === 'PAS_DE_SESSION' || valeur === '' || valeur === 'NON_COUVERT');
+
   let pillHTML = '';
   if (valeur === 'NON_COUVERT' || valeur === '') {
     pillHTML = `<div class="pill alert"><strong>⚠ Non couvert</strong>${dateLabel}</div>`;
@@ -756,9 +760,19 @@ function mettreAJourCellule(lundiISO, colonne, valeur){
     pillHTML = `<div class="pill ok" ${style}><strong>${valeur}</strong>${dateLabel}${pres}</div>`;
   }
 
+  // Mettre à jour la classe du wrapper (présence/absence du fond doré)
+  cellWrapper.classList.remove('cell-presentiel');
+  const badgeExistant = cellWrapper.querySelector('.badge-pres-admin');
+  if (badgeExistant) badgeExistant.remove();
+
   const ancienPill = cellWrapper.querySelector('.pill');
   if (ancienPill) { ancienPill.outerHTML = pillHTML; }
   else { cellWrapper.insertAdjacentHTML('afterbegin', pillHTML); }
+
+  // Si on a mis PAS_DE_SESSION, régénérer le planning pour recalculer les présentiels du mois
+  if (doitRecalculer) {
+    setTimeout(() => genererPlanning(), 200);
+  }
 }
 
 // ─── Vue candidats pour arbitrage ─────────────────────────────────────────────
